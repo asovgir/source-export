@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudbeds Sources Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 15px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .btn-success {
+            background-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #218838;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .info {
+            background-color: #cce7ff;
+            border: 1px solid #b3d7ff;
+            color: #004085;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #e9ecef;
+        }
+        .table-container {
+            max-height: 70vh;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .stats {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+        }
+        
+        /* Settings form styles */
+        .settings-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .settings-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            align-items: end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-group input:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 3px rgba(0,123,255,0.3);
+        }
+        .settings-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .connection-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status-testing {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏨 Cloudbeds Sources Report</h1>
+            <div class="controls">
+                <button onclick="loadSources()" id="loadBtn">Load Sources</button>
+                <button onclick="exportCSV()" id="exportBtn" class="btn-success" disabled>Export CSV</button>
+                <button onclick="shutdownApp()" class="btn-secondary">Exit</button>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="settings-section">
+            <h3>⚙️ API Settings</h3>
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="apiKey">API Key:</label>
+                    <input type="password" id="apiKey" placeholder="Enter your Cloudbeds API key">
+                </div>
+                <div class="form-group">
+                    <label for="propertyId">Property ID:</label>
+                    <input type="text" id="propertyId" placeholder="Enter your Property ID (e.g., 6000)">
+                </div>
+                <div class="settings-buttons">
+                    <button onclick="saveSettings()" id="saveBtn">Save Settings</button>
+                    <button onclick="testConnection()" id="testBtn" class="btn-warning">Test Connection</button>
+                </div>
+            </div>
+            <div id="connectionStatus" class="connection-status hidden"></div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <p>🔄 Loading sources data...</p>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+        <div id="success" class="success hidden"></div>
+        <div id="info" class="info hidden"></div>
+
+        <div id="stats" class="stats hidden"></div>
+
+        <div id="tableContainer" class="table-container hidden">
+            <table id="sourcesTable">
+                <thead id="tableHeader"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div id="noData" class="info hidden">
+            <p>📋 No sources data loaded. Configure your API settings above and click "Load Sources" to fetch data.</p>
+        </div>
+    </div>
+
+    <script>
+        let sourcesData = null;
+
+        // Load saved settings on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+        });
+
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/get-settings');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    document.getElementById('apiKey').value = result.data.api_key || '';
+                    document.getElementById('propertyId').value = result.data.property_id || '6000';
+                    
+                    // If settings exist, show success status
+                    if (result.data.api_key) {
+                        showConnectionStatus('success', '✅ Settings loaded successfully');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        async function saveSettings() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const propertyId = document.getElementById('propertyId').value.trim();
+            
+            if (!apiKey) {
+                showMessage('error', 'Please enter your API key');
+                return;
+            }
+            
+            if (!propertyId) {
+                showMessage('error', 'Please enter your Property ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        api_key: apiKey,
+                        property_id: propertyId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('success', 'Settings saved successfully!');
+                    showConnectionStatus('success', '✅ Settings saved - ready to load sources');
+                } else {
+                    showMessage('error', `Failed to save settings: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showMessage('error', `Error saving settings: ${error.message}`);
+            }
+        }
+
+        async function testConnection() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const propertyId = document.getElementById('propertyId').value.trim();
+            
+            if (!apiKey || !propertyId) {
+                showConnectionStatus('error', '❌ Please enter both API key and Property ID');
+                return;
+            }
+            
+            showConnectionStatus('testing', '🔄 Testing connection...');
+            
+            try {
+                const response = await fetch(`/api/test-connection?api_key=${encodeURIComponent(apiKey)}&property_id=${encodeURIComponent(propertyId)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    showConnectionStatus('success', `✅ ${result.message}`);
+                } else {
+                    showConnectionStatus('error', `❌ ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error testing connection:', error);
+                showConnectionStatus('error', `❌ Connection test failed: ${error.message}`);
+            }
+        }
+
+        function showConnectionStatus(type, message) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = `connection-status status-${type}`;
+            statusEl.textContent = message;
+            statusEl.classList.remove('hidden');
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function showMessage(type, message) {
+            // Hide all messages first
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('success').classList.add('hidden');
+            document.getElementById('info').classList.add('hidden');
+            
+            // Show the appropriate message
+            const element = document.getElementById(type);
+            element.textContent = message;
+            element.classList.remove('hidden');
+            
+            // Auto-hide after 5 seconds for success/info messages
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    element.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function setLoading(isLoading) {
+            const loadingEl = document.getElementById('loading');
+            const loadBtn = document.getElementById('loadBtn');
+            
+            if (isLoading) {
+                loadingEl.classList.remove('hidden');
+                loadBtn.disabled = true;
+                loadBtn.textContent = 'Loading...';
+            } else {
+                loadingEl.classList.add('hidden');
+                loadBtn.disabled = false;
+                loadBtn.textContent = 'Load Sources';
+            }
+        }
+
+        function updateStats(count) {
+            const statsEl = document.getElementById('stats');
+            statsEl.textContent = `📊 Total Sources: ${count}`;
+            statsEl.classList.remove('hidden');
+        }
+
+        function createTable(data) {
+            const { sources, columns, count } = data;
+            
+            if (!sources || sources.length === 0) {
+                document.getElementById('noData').classList.remove('hidden');
+                document.getElementById('tableContainer').classList.add('hidden');
+                return;
+            }
+
+            // Hide no data message and show table
+            document.getElementById('noData').classList.add('hidden');
+            document.getElementById('tableContainer').classList.remove('hidden');
+
+            // Create table header
+            const headerEl = document.getElementById('tableHeader');
+            headerEl.innerHTML = '';
+            const headerRow = document.createElement('tr');
+            
+            columns.forEach(column => {
+                const th = document.createElement('th');
+                th.textContent = column;
+                headerRow.appendChild(th);
+            });
+            
+            headerEl.appendChild(headerRow);
+
+            // Create table body
+            const bodyEl = document.getElementById('tableBody');
+            bodyEl.innerHTML = '';
+            
+            sources.forEach(source => {
+                const row = document.createElement('tr');
+                
+                columns.forEach(column => {
+                    const td = document.createElement('td');
+                    const value = source[column];
+                    
+                    // Format boolean values
+                    if (typeof value === 'boolean') {
+                        td.textContent = value ? 'Yes' : 'No';
+                    } else {
+                        td.textContent = value || '';
+                    }
+                    
+                    row.appendChild(td);
+                });
+                
+                bodyEl.appendChild(row);
+            });
+
+            // Update stats and enable export
+            updateStats(count);
+            document.getElementById('exportBtn').disabled = false;
+        }
+
+        async function loadSources() {
+            try {
+                setLoading(true);
+                
+                const response = await fetch('/api/sources');
+                const result = await response.json();
+                
+                if (result.success) {
+                    sourcesData = result.data;
+                    createTable(result.data);
+                    showMessage('success', `Successfully loaded ${result.data.count} sources!`);
+                } else {
+                    showMessage('error', `Failed to load sources: ${result.error}`);
+                    document.getElementById('tableContainer').classList.add('hidden');
+                    document.getElementById('noData').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading sources:', error);
+                showMessage('error', `Error loading sources: ${error.message}`);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function exportCSV() {
+            if (!sourcesData) {
+                showMessage('error', 'No data to export. Please load sources first.');
+                return;
+            }
+            
+            showMessage('info', 'Exporting to CSV...');
+            
+            // Create a temporary link to download the CSV
+            const link = document.createElement('a');
+            link.href = '/export/csv';
+            link.download = `cloudbeds_sources_${new Date().toISOString().slice(0, 19).replace(/[:\-]/g, '').replace('T', '_')}.csv`;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showMessage('success', 'CSV export started! Check your downloads folder.');
+        }
+
+        async function shutdownApp() {
+            if (confirm('Are you sure you want to exit the application?')) {
+                try {
+                    await fetch('/shutdown', { method: 'POST' });
+                } catch (error) {
+                    // Expected error since server shuts down
+                }
+                window.close();
+            }
+        }
+    </script>
+</body>
+</html>
