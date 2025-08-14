@@ -55,6 +55,7 @@ SOURCES_URL = "https://api.cloudbeds.com/api/v1.3/getSources"
 TAXES_FEES_URL = "https://api.cloudbeds.com/api/v1.3/getTaxesAndFees"
 ROOM_TYPES_URL = "https://api.cloudbeds.com/api/v1.3/getRoomTypes"
 ROOMS_URL = "https://api.cloudbeds.com/api/v1.3/getRooms"
+PAYMENT_METHODS_URL = "https://api.cloudbeds.com/api/v1.3/getPaymentMethods"
 
 def make_api_call(url, params, credentials):
     headers = {
@@ -158,6 +159,95 @@ def process_sources_data(sources_response):
         except Exception as e:
             print(f"❌ Error processing source {i}: {e}")
             continue
+    
+    return processed
+
+def process_payment_methods_data(response):
+    """Process payment methods API response"""
+    if not response or not response.get('success'):
+        print("❌ Payment methods response is not successful")
+        return []
+    
+    # The response structure from make_api_call is: {'success': True, 'data': actual_api_response}
+    # And the actual_api_response is: {'success': True, 'data': {'propertyID': '6000', 'methods': [...], 'gateway': {...}}}
+    # So we need to get response['data']['data'] to access the actual payment data
+    
+    outer_data = response['data']
+    print(f"📊 Outer data keys: {list(outer_data.keys()) if isinstance(outer_data, dict) else 'Not a dict'}")
+    
+    # Handle the nested response structure
+    if isinstance(outer_data, dict) and 'data' in outer_data:
+        data = outer_data['data']
+        print(f"📊 Inner data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+    else:
+        data = outer_data
+        print(f"📊 Using outer data directly: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+    
+    processed = []
+    
+    # Add gateway information first
+    if isinstance(data, dict) and 'gateway' in data and isinstance(data['gateway'], dict):
+        gateway_info = data['gateway']
+        gateway_row = {
+            'data_type': 'Gateway',
+            'property_id': data.get('propertyID', ''),
+            'gateway_name': gateway_info.get('name', ''),
+            'gateway_currency': gateway_info.get('currency', ''),
+            'method_type': '',
+            'method_code': '',
+            'method_name': '',
+            'card_types': ''
+        }
+        processed.append(gateway_row)
+        print(f"✅ Added gateway: {gateway_info.get('name')}")
+    
+    # Process payment methods
+    if isinstance(data, dict) and 'methods' in data and isinstance(data['methods'], list):
+        methods = data['methods']
+        print(f"📊 Processing {len(methods)} payment methods from methods array")
+        
+        # Get gateway info for context
+        gateway_info = data.get('gateway', {})
+        
+        for i, method in enumerate(methods):
+            if method is None:
+                print(f"⚠️ Skipping None method at index {i}")
+                continue
+            
+            print(f"🔍 Processing method {i+1}: {safe_get(method, 'name', 'No name')}")
+            
+            method_row = {
+                'data_type': 'Payment Method',
+                'property_id': data.get('propertyID', ''),
+                'gateway_name': gateway_info.get('name', '') if gateway_info else '',
+                'gateway_currency': gateway_info.get('currency', '') if gateway_info else '',
+                'method_type': safe_get(method, 'method'),
+                'method_code': safe_get(method, 'code'),
+                'method_name': safe_get(method, 'name'),
+                'card_types': ''
+            }
+            
+            # Handle card types if they exist
+            card_types = method.get('cardTypes', [])
+            if isinstance(card_types, list) and card_types:
+                card_type_names = []
+                for card_type in card_types:
+                    if isinstance(card_type, dict):
+                        card_name = card_type.get('cardName', '')
+                        card_code = card_type.get('cardCode', '')
+                        if card_name:
+                            card_type_names.append(f"{card_name} ({card_code})")
+                method_row['card_types'] = ', '.join(card_type_names)
+            
+            processed.append(method_row)
+            print(f"✅ Added payment method {i+1}: {method_row['method_name']}")
+    else:
+        print("❌ No methods array found in data!")
+        print(f"❌ Data keys available: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+        print(f"❌ Data type: {type(data)}")
+    
+    print(f"📊 Total processed payment items: {len(processed)}")
+    print(f"📊 Processed items: {[item.get('data_type', 'Unknown') + ': ' + item.get('method_name', item.get('gateway_name', 'No name')) for item in processed]}")
     
     return processed
 
@@ -340,6 +430,44 @@ def save_settings():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/payment-methods')
+def get_payment_methods():
+    try:
+        credentials = get_credentials()
+        
+        if not credentials['access_token']:
+            return jsonify({'success': False, 'error': 'Access token not configured'})
+        
+        print(f"🚀 Fetching payment methods for property {credentials['property_id']}")
+        
+        response = make_api_call(PAYMENT_METHODS_URL, {'propertyID': credentials['property_id']}, credentials)
+        
+        if not response['success']:
+            return jsonify({'success': False, 'error': response['error']})
+        
+        processed_data = process_payment_methods_data(response)
+        all_columns = get_all_columns(processed_data)
+        normalized_data = normalize_data(processed_data, all_columns)
+        
+        # Count gateways and payment methods
+        gateway_count = len([r for r in processed_data if r.get('data_type') == 'Gateway'])
+        payment_methods_count = len([r for r in processed_data if r.get('data_type') == 'Payment Method'])
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'items': normalized_data,
+                'columns': all_columns,
+                'count': len(normalized_data),
+                'gateway_count': gateway_count,
+                'payment_methods_count': payment_methods_count
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in get_payment_methods: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/get-settings')
 def get_settings():
     return jsonify({'success': True, 'data': load_config()})
@@ -496,6 +624,13 @@ def export_csv():
                 return f"Error: {response['error']}", 500
             data = process_taxes_fees_data(response)
             filename = f"cloudbeds_taxes_fees_{credentials['property_id']}"
+            
+        elif data_type == 'payment-methods':
+            response = make_api_call(PAYMENT_METHODS_URL, {'propertyID': credentials['property_id']}, credentials)
+            if not response['success']:
+                return f"Error: {response['error']}", 500
+            data = process_payment_methods_data(response)
+            filename = f"cloudbeds_payment_methods_{credentials['property_id']}"
             
         elif data_type == 'rooms':
             rt_response = make_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
