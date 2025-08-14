@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloudbeds Sources Report</title>
+    <title>Cloudbeds Reports</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -131,8 +131,35 @@
             border-radius: 4px;
             font-weight: bold;
         }
-        .hidden {
+        
+        /* Tab styles */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 12px 24px;
+            background-color: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            color: #666;
+        }
+        .tab.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tab:hover:not(.active) {
+            background-color: #e9ecef;
+        }
+        .tab-content {
             display: none;
+        }
+        .tab-content.active {
+            display: block;
         }
         
         /* Settings form styles */
@@ -194,66 +221,153 @@
             border: 1px solid #ffeeba;
             color: #856404;
         }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏨 Cloudbeds Sources Report</h1>
+            <h1>🏨 Cloudbeds Reports</h1>
             <div class="controls">
                 <button onclick="exportCSV()" id="exportBtn" class="btn-success" disabled>Export CSV</button>
             </div>
         </div>
 
-        <!-- Settings Section -->
-        <div class="settings-section">
-            <h3>⚙️ API Settings</h3>
-            <div class="settings-form">
-                <div class="form-group">
-                    <label for="accessToken">Access Token:</label>
-                    <input type="password" id="accessToken" placeholder="Enter your Cloudbeds access token">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('sources')">Sources</button>
+            <button class="tab" onclick="switchTab('taxes-fees')">Taxes and Fees</button>
+        </div>
+
+        <!-- Sources Tab Content -->
+        <div id="sources-content" class="tab-content active">
+            <!-- Settings Section -->
+            <div class="settings-section">
+                <h3>⚙️ API Settings</h3>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="accessToken">Access Token:</label>
+                        <input type="password" id="accessToken" placeholder="Enter your Cloudbeds access token">
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyId">Property ID:</label>
+                        <input type="text" id="propertyId" placeholder="Enter your Property ID (e.g., 6000)">
+                    </div>
+                    <div class="settings-buttons">
+                        <button onclick="loadData()" id="loadBtn">Load Sources</button>
+                        <button onclick="testConnection()" id="testBtn" class="btn-warning">Test Connection</button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="propertyId">Property ID:</label>
-                    <input type="text" id="propertyId" placeholder="Enter your Property ID (e.g., 6000)">
-                </div>
-                <div class="settings-buttons">
-                    <button onclick="loadSources()" id="loadBtn">Load Sources</button>
-                    <button onclick="testConnection()" id="testBtn" class="btn-warning">Test Connection</button>
-                </div>
+                <div id="connectionStatus" class="connection-status hidden"></div>
             </div>
-            <div id="connectionStatus" class="connection-status hidden"></div>
+
+            <div id="loading" class="loading hidden">
+                <p>🔄 Loading sources data...</p>
+            </div>
+
+            <div id="error" class="error hidden"></div>
+            <div id="success" class="success hidden"></div>
+            <div id="info" class="info hidden"></div>
+
+            <div id="stats" class="stats hidden"></div>
+
+            <div id="tableContainer" class="table-container hidden">
+                <table id="dataTable">
+                    <thead id="tableHeader"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <div id="noData" class="info hidden">
+                <p>📋 No sources data loaded. Configure your access token above and click "Load Sources" to fetch data.</p>
+            </div>
         </div>
 
-        <div id="loading" class="loading hidden">
-            <p>🔄 Loading sources data...</p>
-        </div>
+        <!-- Taxes and Fees Tab Content -->
+        <div id="taxes-fees-content" class="tab-content">
+            <!-- Settings Section (shared) -->
+            <div class="settings-section">
+                <h3>⚙️ API Settings</h3>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="accessToken2">Access Token:</label>
+                        <input type="password" id="accessToken2" placeholder="Enter your Cloudbeds access token">
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyId2">Property ID:</label>
+                        <input type="text" id="propertyId2" placeholder="Enter your Property ID (e.g., 6000)">
+                    </div>
+                    <div class="settings-buttons">
+                        <button onclick="loadData()" id="loadBtn2">Load Taxes & Fees</button>
+                        <button onclick="testConnection()" id="testBtn2" class="btn-warning">Test Connection</button>
+                    </div>
+                </div>
+                <div id="connectionStatus2" class="connection-status hidden"></div>
+            </div>
 
-        <div id="error" class="error hidden"></div>
-        <div id="success" class="success hidden"></div>
-        <div id="info" class="info hidden"></div>
+            <div id="loading2" class="loading hidden">
+                <p>🔄 Loading taxes and fees data...</p>
+            </div>
 
-        <div id="stats" class="stats hidden"></div>
+            <div id="error2" class="error hidden"></div>
+            <div id="success2" class="success hidden"></div>
+            <div id="info2" class="info hidden"></div>
 
-        <div id="tableContainer" class="table-container hidden">
-            <table id="sourcesTable">
-                <thead id="tableHeader"></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
+            <div id="stats2" class="stats hidden"></div>
 
-        <div id="noData" class="info hidden">
-            <p>📋 No sources data loaded. Configure your access token above and click "Load Sources" to fetch data.</p>
+            <div id="tableContainer2" class="table-container hidden">
+                <table id="dataTable2">
+                    <thead id="tableHeader2"></thead>
+                    <tbody id="tableBody2"></tbody>
+                </table>
+            </div>
+
+            <div id="noData2" class="info hidden">
+                <p>📋 No taxes and fees data loaded. Configure your access token above and click "Load Taxes & Fees" to fetch data.</p>
+            </div>
         </div>
     </div>
 
     <script>
         let sourcesData = null;
+        let taxesFeesData = null;
+        let currentTab = 'sources';
 
         // Load saved settings on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadSettings();
         });
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + '-content').classList.add('active');
+            
+            // Update load button text
+            const loadBtn = tabName === 'sources' ? document.getElementById('loadBtn') : document.getElementById('loadBtn2');
+            loadBtn.textContent = tabName === 'sources' ? 'Load Sources' : 'Load Taxes & Fees';
+            
+            // Sync settings between tabs
+            syncSettings();
+        }
+
+        function syncSettings() {
+            if (currentTab === 'sources') {
+                document.getElementById('accessToken2').value = document.getElementById('accessToken').value;
+                document.getElementById('propertyId2').value = document.getElementById('propertyId').value;
+            } else {
+                document.getElementById('accessToken').value = document.getElementById('accessToken2').value;
+                document.getElementById('propertyId').value = document.getElementById('propertyId2').value;
+            }
+        }
 
         async function loadSettings() {
             try {
@@ -263,6 +377,8 @@
                 if (result.success && result.data) {
                     document.getElementById('accessToken').value = result.data.access_token || '';
                     document.getElementById('propertyId').value = result.data.property_id || '6000';
+                    document.getElementById('accessToken2').value = result.data.access_token || '';
+                    document.getElementById('propertyId2').value = result.data.property_id || '6000';
                     
                     // If settings exist, show success status
                     if (result.data.access_token) {
@@ -274,184 +390,18 @@
             }
         }
 
-        async function saveSettings() {
-            // This function is no longer used but kept for compatibility
-            const accessToken = document.getElementById('accessToken').value.trim();
-            const propertyId = document.getElementById('propertyId').value.trim();
+        async function loadData() {
+            syncSettings(); // Ensure settings are in sync
             
-            if (!accessToken) {
-                showMessage('error', 'Please enter your access token');
-                return;
-            }
-            
-            if (!propertyId) {
-                showMessage('error', 'Please enter your Property ID');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/save-settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        access_token: accessToken,
-                        property_id: propertyId
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showMessage('success', 'Settings saved successfully!');
-                    showConnectionStatus('success', '✅ Settings saved - ready to load sources');
-                } else {
-                    showMessage('error', `Failed to save settings: ${result.error}`);
-                }
-            } catch (error) {
-                console.error('Error saving settings:', error);
-                showMessage('error', `Error saving settings: ${error.message}`);
-            }
-        }
-
-        async function testConnection() {
-            const accessToken = document.getElementById('accessToken').value.trim();
-            const propertyId = document.getElementById('propertyId').value.trim();
-            
-            if (!accessToken || !propertyId) {
-                showConnectionStatus('error', '❌ Please enter both access token and Property ID');
-                return;
-            }
-            
-            showConnectionStatus('testing', '🔄 Testing connection...');
-            
-            try {
-                const response = await fetch(`/api/test-connection?access_token=${encodeURIComponent(accessToken)}&property_id=${encodeURIComponent(propertyId)}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    showConnectionStatus('success', `✅ ${result.message}`);
-                } else {
-                    showConnectionStatus('error', `❌ ${result.error}`);
-                }
-            } catch (error) {
-                console.error('Error testing connection:', error);
-                showConnectionStatus('error', `❌ Connection test failed: ${error.message}`);
-            }
-        }
-
-        function showConnectionStatus(type, message) {
-            const statusEl = document.getElementById('connectionStatus');
-            statusEl.className = `connection-status status-${type}`;
-            statusEl.textContent = message;
-            statusEl.classList.remove('hidden');
-            
-            // Auto-hide success messages after 5 seconds
-            if (type === 'success') {
-                setTimeout(() => {
-                    statusEl.classList.add('hidden');
-                }, 5000);
-            }
-        }
-
-        function showMessage(type, message) {
-            // Hide all messages first
-            document.getElementById('error').classList.add('hidden');
-            document.getElementById('success').classList.add('hidden');
-            document.getElementById('info').classList.add('hidden');
-            
-            // Show the appropriate message
-            const element = document.getElementById(type);
-            element.textContent = message;
-            element.classList.remove('hidden');
-            
-            // Auto-hide after 5 seconds for success/info messages
-            if (type === 'success' || type === 'info') {
-                setTimeout(() => {
-                    element.classList.add('hidden');
-                }, 5000);
-            }
-        }
-
-        function setLoading(isLoading) {
-            const loadingEl = document.getElementById('loading');
-            const loadBtn = document.getElementById('loadBtn');
-            
-            if (isLoading) {
-                loadingEl.classList.remove('hidden');
-                loadBtn.disabled = true;
-                loadBtn.textContent = 'Loading...';
+            if (currentTab === 'sources') {
+                await loadSources();
             } else {
-                loadingEl.classList.add('hidden');
-                loadBtn.disabled = false;
-                loadBtn.textContent = 'Load Sources';
+                await loadTaxesFees();
             }
-        }
-
-        function updateStats(count) {
-            const statsEl = document.getElementById('stats');
-            statsEl.textContent = `📊 Total Sources: ${count}`;
-            statsEl.classList.remove('hidden');
-        }
-
-        function createTable(data) {
-            const { sources, columns, count } = data;
-            
-            if (!sources || sources.length === 0) {
-                document.getElementById('noData').classList.remove('hidden');
-                document.getElementById('tableContainer').classList.add('hidden');
-                return;
-            }
-
-            // Hide no data message and show table
-            document.getElementById('noData').classList.add('hidden');
-            document.getElementById('tableContainer').classList.remove('hidden');
-
-            // Create table header
-            const headerEl = document.getElementById('tableHeader');
-            headerEl.innerHTML = '';
-            const headerRow = document.createElement('tr');
-            
-            columns.forEach(column => {
-                const th = document.createElement('th');
-                th.textContent = column;
-                headerRow.appendChild(th);
-            });
-            
-            headerEl.appendChild(headerRow);
-
-            // Create table body
-            const bodyEl = document.getElementById('tableBody');
-            bodyEl.innerHTML = '';
-            
-            sources.forEach(source => {
-                const row = document.createElement('tr');
-                
-                columns.forEach(column => {
-                    const td = document.createElement('td');
-                    const value = source[column];
-                    
-                    // Format boolean values
-                    if (typeof value === 'boolean') {
-                        td.textContent = value ? 'Yes' : 'No';
-                    } else {
-                        td.textContent = value || '';
-                    }
-                    
-                    row.appendChild(td);
-                });
-                
-                bodyEl.appendChild(row);
-            });
-
-            // Update stats and enable export
-            updateStats(count);
-            document.getElementById('exportBtn').disabled = false;
         }
 
         async function loadSources() {
-            // First, save the settings
+            // Save settings and load sources
             const accessToken = document.getElementById('accessToken').value.trim();
             const propertyId = document.getElementById('propertyId').value.trim();
             
@@ -493,13 +443,13 @@
                 
                 if (result.success) {
                     sourcesData = result.data;
-                    createTable(result.data);
+                    createTable(result.data, 'sources');
                     showMessage('success', `Successfully loaded ${result.data.count} sources!`);
                     showConnectionStatus('success', '✅ Settings saved and sources loaded');
                 } else {
                     showMessage('error', `Failed to load sources: ${result.error}`);
-                    document.getElementById('tableContainer').classList.add('hidden');
-                    document.getElementById('noData').classList.remove('hidden');
+                    hideTable();
+                    showNoData();
                 }
             } catch (error) {
                 console.error('Error loading sources:', error);
@@ -509,9 +459,222 @@
             }
         }
 
+        async function loadTaxesFees() {
+            // Save settings and load taxes/fees
+            const accessToken = document.getElementById('accessToken2').value.trim();
+            const propertyId = document.getElementById('propertyId2').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your access token', '2');
+                return;
+            }
+            
+            if (!propertyId) {
+                showMessage('error', 'Please enter your Property ID', '2');
+                return;
+            }
+            
+            try {
+                setLoading(true, '2');
+                
+                // Save settings first
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyId
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`, '2');
+                    return;
+                }
+                
+                // Then load taxes and fees
+                const response = await fetch('/api/taxes-fees');
+                const result = await response.json();
+                
+                if (result.success) {
+                    taxesFeesData = result.data;
+                    createTable(result.data, 'taxes-fees');
+                    showMessage('success', `Successfully loaded ${result.data.count} taxes and fees items!`, '2');
+                    showConnectionStatus('success', '✅ Settings saved and taxes/fees loaded', '2');
+                } else {
+                    showMessage('error', `Failed to load taxes and fees: ${result.error}`, '2');
+                    hideTable('2');
+                    showNoData('2');
+                }
+            } catch (error) {
+                console.error('Error loading taxes and fees:', error);
+                showMessage('error', `Error loading taxes and fees: ${error.message}`, '2');
+            } finally {
+                setLoading(false, '2');
+            }
+        }
+
+        function showConnectionStatus(type, message, suffix = '') {
+            const statusEl = document.getElementById('connectionStatus' + suffix);
+            statusEl.className = `connection-status status-${type}`;
+            statusEl.textContent = message;
+            statusEl.classList.remove('hidden');
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function showMessage(type, message, suffix = '') {
+            // Hide all messages first
+            document.getElementById('error' + suffix).classList.add('hidden');
+            document.getElementById('success' + suffix).classList.add('hidden');
+            document.getElementById('info' + suffix).classList.add('hidden');
+            
+            // Show the appropriate message
+            const element = document.getElementById(type + suffix);
+            element.textContent = message;
+            element.classList.remove('hidden');
+            
+            // Auto-hide after 5 seconds for success/info messages
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    element.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function setLoading(isLoading, suffix = '') {
+            const loadingEl = document.getElementById('loading' + suffix);
+            const loadBtn = document.getElementById('loadBtn' + suffix);
+            
+            if (isLoading) {
+                loadingEl.classList.remove('hidden');
+                loadBtn.disabled = true;
+                loadBtn.textContent = 'Loading...';
+            } else {
+                loadingEl.classList.add('hidden');
+                loadBtn.disabled = false;
+                loadBtn.textContent = currentTab === 'sources' ? 'Load Sources' : 'Load Taxes & Fees';
+            }
+        }
+
+        function updateStats(count, suffix = '') {
+            const statsEl = document.getElementById('stats' + suffix);
+            const dataType = currentTab === 'sources' ? 'Sources' : 'Taxes & Fees Items';
+            statsEl.textContent = `📊 Total ${dataType}: ${count}`;
+            statsEl.classList.remove('hidden');
+        }
+
+        function hideTable(suffix = '') {
+            document.getElementById('tableContainer' + suffix).classList.add('hidden');
+        }
+
+        function showNoData(suffix = '') {
+            document.getElementById('noData' + suffix).classList.remove('hidden');
+        }
+
+        function createTable(data, dataType) {
+            const suffix = dataType === 'sources' ? '' : '2';
+            const { items, sources, columns, count } = data;
+            const tableData = items || sources || [];
+            
+            if (!tableData || tableData.length === 0) {
+                showNoData(suffix);
+                hideTable(suffix);
+                return;
+            }
+
+            // Hide no data message and show table
+            document.getElementById('noData' + suffix).classList.add('hidden');
+            document.getElementById('tableContainer' + suffix).classList.remove('hidden');
+
+            // Create table header
+            const headerEl = document.getElementById('tableHeader' + suffix);
+            headerEl.innerHTML = '';
+            const headerRow = document.createElement('tr');
+            
+            columns.forEach(column => {
+                const th = document.createElement('th');
+                th.textContent = column;
+                headerRow.appendChild(th);
+            });
+            
+            headerEl.appendChild(headerRow);
+
+            // Create table body
+            const bodyEl = document.getElementById('tableBody' + suffix);
+            bodyEl.innerHTML = '';
+            
+            tableData.forEach(item => {
+                const row = document.createElement('tr');
+                
+                columns.forEach(column => {
+                    const td = document.createElement('td');
+                    const value = item[column];
+                    
+                    // Format boolean values
+                    if (typeof value === 'boolean') {
+                        td.textContent = value ? 'Yes' : 'No';
+                    } else {
+                        td.textContent = value || '';
+                    }
+                    
+                    row.appendChild(td);
+                });
+                
+                bodyEl.appendChild(row);
+            });
+
+            // Update stats and enable export
+            updateStats(count, suffix);
+            document.getElementById('exportBtn').disabled = false;
+        }
+
+        async function testConnection() {
+            const accessToken = currentTab === 'sources' ? 
+                document.getElementById('accessToken').value.trim() : 
+                document.getElementById('accessToken2').value.trim();
+            const propertyId = currentTab === 'sources' ? 
+                document.getElementById('propertyId').value.trim() : 
+                document.getElementById('propertyId2').value.trim();
+            const suffix = currentTab === 'sources' ? '' : '2';
+            
+            if (!accessToken || !propertyId) {
+                showConnectionStatus('error', '❌ Please enter both access token and Property ID', suffix);
+                return;
+            }
+            
+            showConnectionStatus('testing', '🔄 Testing connection...', suffix);
+            
+            try {
+                const response = await fetch(`/api/test-connection?access_token=${encodeURIComponent(accessToken)}&property_id=${encodeURIComponent(propertyId)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    showConnectionStatus('success', `✅ ${result.message}`, suffix);
+                } else {
+                    showConnectionStatus('error', `❌ ${result.error}`, suffix);
+                }
+            } catch (error) {
+                console.error('Error testing connection:', error);
+                showConnectionStatus('error', `❌ Connection test failed: ${error.message}`, suffix);
+            }
+        }
+
         function exportCSV() {
-            if (!sourcesData) {
-                showMessage('error', 'No data to export. Please load sources first.');
+            const dataType = currentTab === 'sources' ? 'sources' : 'taxes-fees';
+            const currentData = currentTab === 'sources' ? sourcesData : taxesFeesData;
+            
+            if (!currentData) {
+                showMessage('error', `No data to export. Please load ${currentTab === 'sources' ? 'sources' : 'taxes and fees'} first.`);
                 return;
             }
             
@@ -519,8 +682,8 @@
             
             // Create a temporary link to download the CSV
             const link = document.createElement('a');
-            link.href = '/export/csv';
-            link.download = `cloudbeds_sources_${new Date().toISOString().slice(0, 19).replace(/[:\-]/g, '').replace('T', '_')}.csv`;
+            link.href = `/export/csv?type=${dataType}`;
+            link.download = `cloudbeds_${dataType.replace('-', '_')}_${new Date().toISOString().slice(0, 19).replace(/[:\-]/g, '').replace('T', '_')}.csv`;
             
             // Trigger download
             document.body.appendChild(link);
