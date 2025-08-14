@@ -201,9 +201,7 @@
         <div class="header">
             <h1>🏨 Cloudbeds Sources Report</h1>
             <div class="controls">
-                <button onclick="loadSources()" id="loadBtn">Load Sources</button>
                 <button onclick="exportCSV()" id="exportBtn" class="btn-success" disabled>Export CSV</button>
-                <button onclick="shutdownApp()" class="btn-secondary">Exit</button>
             </div>
         </div>
 
@@ -212,15 +210,15 @@
             <h3>⚙️ API Settings</h3>
             <div class="settings-form">
                 <div class="form-group">
-                    <label for="apiKey">API Key:</label>
-                    <input type="password" id="apiKey" placeholder="Enter your Cloudbeds API key">
+                    <label for="accessToken">Access Token:</label>
+                    <input type="password" id="accessToken" placeholder="Enter your Cloudbeds access token">
                 </div>
                 <div class="form-group">
                     <label for="propertyId">Property ID:</label>
                     <input type="text" id="propertyId" placeholder="Enter your Property ID (e.g., 6000)">
                 </div>
                 <div class="settings-buttons">
-                    <button onclick="saveSettings()" id="saveBtn">Save Settings</button>
+                    <button onclick="loadSources()" id="loadBtn">Load Sources</button>
                     <button onclick="testConnection()" id="testBtn" class="btn-warning">Test Connection</button>
                 </div>
             </div>
@@ -245,7 +243,7 @@
         </div>
 
         <div id="noData" class="info hidden">
-            <p>📋 No sources data loaded. Configure your API settings above and click "Load Sources" to fetch data.</p>
+            <p>📋 No sources data loaded. Configure your access token above and click "Load Sources" to fetch data.</p>
         </div>
     </div>
 
@@ -263,11 +261,11 @@
                 const result = await response.json();
                 
                 if (result.success && result.data) {
-                    document.getElementById('apiKey').value = result.data.api_key || '';
+                    document.getElementById('accessToken').value = result.data.access_token || '';
                     document.getElementById('propertyId').value = result.data.property_id || '6000';
                     
                     // If settings exist, show success status
-                    if (result.data.api_key) {
+                    if (result.data.access_token) {
                         showConnectionStatus('success', '✅ Settings loaded successfully');
                     }
                 }
@@ -277,11 +275,12 @@
         }
 
         async function saveSettings() {
-            const apiKey = document.getElementById('apiKey').value.trim();
+            // This function is no longer used but kept for compatibility
+            const accessToken = document.getElementById('accessToken').value.trim();
             const propertyId = document.getElementById('propertyId').value.trim();
             
-            if (!apiKey) {
-                showMessage('error', 'Please enter your API key');
+            if (!accessToken) {
+                showMessage('error', 'Please enter your access token');
                 return;
             }
             
@@ -297,7 +296,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        api_key: apiKey,
+                        access_token: accessToken,
                         property_id: propertyId
                     })
                 });
@@ -317,18 +316,18 @@
         }
 
         async function testConnection() {
-            const apiKey = document.getElementById('apiKey').value.trim();
+            const accessToken = document.getElementById('accessToken').value.trim();
             const propertyId = document.getElementById('propertyId').value.trim();
             
-            if (!apiKey || !propertyId) {
-                showConnectionStatus('error', '❌ Please enter both API key and Property ID');
+            if (!accessToken || !propertyId) {
+                showConnectionStatus('error', '❌ Please enter both access token and Property ID');
                 return;
             }
             
             showConnectionStatus('testing', '🔄 Testing connection...');
             
             try {
-                const response = await fetch(`/api/test-connection?api_key=${encodeURIComponent(apiKey)}&property_id=${encodeURIComponent(propertyId)}`);
+                const response = await fetch(`/api/test-connection?access_token=${encodeURIComponent(accessToken)}&property_id=${encodeURIComponent(propertyId)}`);
                 const result = await response.json();
                 
                 if (result.success) {
@@ -452,9 +451,43 @@
         }
 
         async function loadSources() {
+            // First, save the settings
+            const accessToken = document.getElementById('accessToken').value.trim();
+            const propertyId = document.getElementById('propertyId').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your access token');
+                return;
+            }
+            
+            if (!propertyId) {
+                showMessage('error', 'Please enter your Property ID');
+                return;
+            }
+            
             try {
                 setLoading(true);
                 
+                // Save settings first
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyId
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`);
+                    return;
+                }
+                
+                // Then load sources
                 const response = await fetch('/api/sources');
                 const result = await response.json();
                 
@@ -462,6 +495,7 @@
                     sourcesData = result.data;
                     createTable(result.data);
                     showMessage('success', `Successfully loaded ${result.data.count} sources!`);
+                    showConnectionStatus('success', '✅ Settings saved and sources loaded');
                 } else {
                     showMessage('error', `Failed to load sources: ${result.error}`);
                     document.getElementById('tableContainer').classList.add('hidden');
@@ -494,17 +528,6 @@
             document.body.removeChild(link);
             
             showMessage('success', 'CSV export started! Check your downloads folder.');
-        }
-
-        async function shutdownApp() {
-            if (confirm('Are you sure you want to exit the application?')) {
-                try {
-                    await fetch('/shutdown', { method: 'POST' });
-                } catch (error) {
-                    // Expected error since server shuts down
-                }
-                window.close();
-            }
         }
     </script>
 </body>

@@ -54,7 +54,7 @@ def get_credentials():
     """Get API credentials from config"""
     config = load_config()
     return {
-        'api_key': config.get('api_key'),
+        'access_token': config.get('access_token'),
         'property_id': config.get('property_id', '6000')
     }
 
@@ -62,9 +62,9 @@ def get_credentials():
 SOURCES_URL = "https://api.cloudbeds.com/api/v1.3/getSources"
 
 def make_api_call(url, params, credentials):
-    """Make API call to Cloudbeds using API Key authentication"""
+    """Make API call to Cloudbeds using Bearer token authentication"""
     headers = {
-        "x-api-key": credentials['api_key'],
+        "Authorization": f"Bearer {credentials['access_token']}",
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
@@ -76,9 +76,9 @@ def make_api_call(url, params, credentials):
         if response.status_code == 200:
             return {'success': True, 'data': response.json()}
         elif response.status_code == 401:
-            return {'success': False, 'error': "Authentication failed. Please check your API key."}
+            return {'success': False, 'error': "Authentication failed. Please check your access token."}
         elif response.status_code == 403:
-            return {'success': False, 'error': "Access forbidden. Please check your API permissions."}
+            return {'success': False, 'error': "Access forbidden. Please check your access token permissions."}
         elif response.status_code == 429:
             return {'success': False, 'error': "Rate limit exceeded. Please try again in a few minutes."}
         else:
@@ -169,7 +169,7 @@ def save_settings():
     try:
         data = request.get_json()
         config = {
-            'api_key': data.get('api_key', '').strip(),
+            'access_token': data.get('access_token', '').strip(),
             'property_id': data.get('property_id', '6000').strip()
         }
         
@@ -190,13 +190,13 @@ def test_connection():
     print("🧪 Testing API connection...")
     
     # Get current form data if available, otherwise use saved config
-    form_api_key = request.args.get('api_key')
+    form_access_token = request.args.get('access_token')
     form_property_id = request.args.get('property_id')
     
-    if form_api_key and form_property_id:
+    if form_access_token and form_property_id:
         # Use form data for testing (before saving)
         credentials = {
-            'api_key': form_api_key.strip(),
+            'access_token': form_access_token.strip(),
             'property_id': form_property_id.strip()
         }
         print("🔧 Using form data for test")
@@ -206,10 +206,10 @@ def test_connection():
         print("🔧 Using saved credentials for test")
     
     # Validate credentials
-    if not credentials['api_key'] or not credentials['api_key'].strip():
+    if not credentials['access_token'] or not credentials['access_token'].strip():
         return jsonify({
             'success': False, 
-            'error': 'Please configure your API credentials first.'
+            'error': 'Please configure your access token first.'
         })
     
     if not credentials['property_id'] or not credentials['property_id'].strip():
@@ -272,8 +272,8 @@ def get_sources():
     """Main API endpoint for fetching sources"""
     credentials = get_credentials()
     
-    if not credentials['api_key']:
-        return jsonify({'success': False, 'error': 'API credentials not configured. Please check settings.'})
+    if not credentials['access_token']:
+        return jsonify({'success': False, 'error': 'Access token not configured. Please check settings.'})
     
     print(f"🚀 Fetching sources for property {credentials['property_id']}")
     
@@ -325,8 +325,8 @@ def export_csv():
     """Export sources data to CSV"""
     credentials = get_credentials()
     
-    if not credentials['api_key']:
-        return "API credentials not configured", 400
+    if not credentials['access_token']:
+        return "Access token not configured", 400
     
     print(f"📊 Exporting sources to CSV for property {credentials['property_id']}")
     
