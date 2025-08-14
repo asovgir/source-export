@@ -239,6 +239,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('sources')">Sources</button>
             <button class="tab" onclick="switchTab('taxes-fees')">Taxes and Fees</button>
+            <button class="tab" onclick="switchTab('rooms')">Rooms</button>
         </div>
 
         <!-- Sources Tab Content -->
@@ -328,11 +329,62 @@
                 <p>📋 No taxes and fees data loaded. Configure your access token above and click "Load Taxes & Fees" to fetch data.</p>
             </div>
         </div>
+
+        <!-- Rooms Tab Content -->
+        <div id="rooms-content" class="tab-content">
+            <!-- Settings Section (shared) -->
+            <div class="settings-section">
+                <h3>⚙️ API Settings</h3>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="accessToken3">Access Token:</label>
+                        <input type="password" id="accessToken3" placeholder="Enter your Cloudbeds access token">
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyId3">Property ID:</label>
+                        <input type="text" id="propertyId3" placeholder="Enter your Property ID (e.g., 6000)">
+                    </div>
+                    <div class="settings-buttons">
+                        <button onclick="loadData()" id="loadBtn3">Load Rooms</button>
+                        <button onclick="testConnection()" id="testBtn3" class="btn-warning">Test Connection</button>
+                    </div>
+                </div>
+                <div id="connectionStatus3" class="connection-status hidden"></div>
+            </div>
+
+            <div id="loading3" class="loading hidden">
+                <p>🔄 Loading rooms data...</p>
+            </div>
+
+            <div id="error3" class="error hidden"></div>
+            <div id="success3" class="success hidden"></div>
+            <div id="info3" class="info hidden"></div>
+
+            <div id="stats3" class="stats hidden"></div>
+
+            <!-- Rooms-specific controls -->
+            <div id="roomsControls" class="hidden" style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+                <button onclick="toggleAllRoomDetails()" id="toggleAllBtn" class="btn-warning" style="margin-right: 10px;">▼ Hide All Room Details</button>
+                <span style="color: #666;">Toggle to show/hide individual room details under each room type</span>
+            </div>
+
+            <div id="tableContainer3" class="table-container hidden">
+                <table id="dataTable3">
+                    <thead id="tableHeader3"></thead>
+                    <tbody id="tableBody3"></tbody>
+                </table>
+            </div>
+
+            <div id="noData3" class="info hidden">
+                <p>📋 No rooms data loaded. Configure your access token above and click "Load Rooms" to fetch data.</p>
+            </div>
+        </div>
     </div>
 
     <script>
         let sourcesData = null;
         let taxesFeesData = null;
+        let roomsData = null;
         let currentTab = 'sources';
 
         // Load saved settings on page load
@@ -352,8 +404,11 @@
             document.getElementById(tabName + '-content').classList.add('active');
             
             // Update load button text
-            const loadBtn = tabName === 'sources' ? document.getElementById('loadBtn') : document.getElementById('loadBtn2');
-            loadBtn.textContent = tabName === 'sources' ? 'Load Sources' : 'Load Taxes & Fees';
+            const loadBtn = currentTab === 'sources' ? document.getElementById('loadBtn') : 
+                          currentTab === 'taxes-fees' ? document.getElementById('loadBtn2') :
+                          document.getElementById('loadBtn3');
+            loadBtn.textContent = currentTab === 'sources' ? 'Load Sources' : 
+                                currentTab === 'taxes-fees' ? 'Load Taxes & Fees' : 'Load Rooms';
             
             // Sync settings between tabs
             syncSettings();
@@ -363,9 +418,18 @@
             if (currentTab === 'sources') {
                 document.getElementById('accessToken2').value = document.getElementById('accessToken').value;
                 document.getElementById('propertyId2').value = document.getElementById('propertyId').value;
-            } else {
+                document.getElementById('accessToken3').value = document.getElementById('accessToken').value;
+                document.getElementById('propertyId3').value = document.getElementById('propertyId').value;
+            } else if (currentTab === 'taxes-fees') {
                 document.getElementById('accessToken').value = document.getElementById('accessToken2').value;
                 document.getElementById('propertyId').value = document.getElementById('propertyId2').value;
+                document.getElementById('accessToken3').value = document.getElementById('accessToken2').value;
+                document.getElementById('propertyId3').value = document.getElementById('propertyId2').value;
+            } else {
+                document.getElementById('accessToken').value = document.getElementById('accessToken3').value;
+                document.getElementById('propertyId').value = document.getElementById('propertyId3').value;
+                document.getElementById('accessToken2').value = document.getElementById('accessToken3').value;
+                document.getElementById('propertyId2').value = document.getElementById('propertyId3').value;
             }
         }
 
@@ -379,6 +443,8 @@
                     document.getElementById('propertyId').value = result.data.property_id || '6000';
                     document.getElementById('accessToken2').value = result.data.access_token || '';
                     document.getElementById('propertyId2').value = result.data.property_id || '6000';
+                    document.getElementById('accessToken3').value = result.data.access_token || '';
+                    document.getElementById('propertyId3').value = result.data.property_id || '6000';
                     
                     // If settings exist, show success status
                     if (result.data.access_token) {
@@ -395,8 +461,10 @@
             
             if (currentTab === 'sources') {
                 await loadSources();
-            } else {
+            } else if (currentTab === 'taxes-fees') {
                 await loadTaxesFees();
+            } else {
+                await loadRooms();
             }
         }
 
@@ -518,6 +586,65 @@
             }
         }
 
+        async function loadRooms() {
+            // Save settings and load rooms
+            const accessToken = document.getElementById('accessToken3').value.trim();
+            const propertyId = document.getElementById('propertyId3').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your access token', '3');
+                return;
+            }
+            
+            if (!propertyId) {
+                showMessage('error', 'Please enter your Property ID', '3');
+                return;
+            }
+            
+            try {
+                setLoading(true, '3');
+                
+                // Save settings first
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyId
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`, '3');
+                    return;
+                }
+                
+                // Then load rooms
+                const response = await fetch('/api/rooms');
+                const result = await response.json();
+                
+                if (result.success) {
+                    roomsData = result.data;
+                    createTable(result.data, 'rooms');
+                    showMessage('success', `Successfully loaded ${result.data.room_types_count} room types and ${result.data.rooms_count} rooms!`, '3');
+                    showConnectionStatus('success', '✅ Settings saved and rooms loaded', '3');
+                } else {
+                    showMessage('error', `Failed to load rooms: ${result.error}`, '3');
+                    hideTable('3');
+                    showNoData('3');
+                }
+            } catch (error) {
+                console.error('Error loading rooms:', error);
+                showMessage('error', `Error loading rooms: ${error.message}`, '3');
+            } finally {
+                setLoading(false, '3');
+            }
+        }
+
         function showConnectionStatus(type, message, suffix = '') {
             const statusEl = document.getElementById('connectionStatus' + suffix);
             statusEl.className = `connection-status status-${type}`;
@@ -562,13 +689,15 @@
             } else {
                 loadingEl.classList.add('hidden');
                 loadBtn.disabled = false;
-                loadBtn.textContent = currentTab === 'sources' ? 'Load Sources' : 'Load Taxes & Fees';
+                loadBtn.textContent = currentTab === 'sources' ? 'Load Sources' : 
+                                    currentTab === 'taxes-fees' ? 'Load Taxes & Fees' : 'Load Rooms';
             }
         }
 
         function updateStats(count, suffix = '') {
             const statsEl = document.getElementById('stats' + suffix);
-            const dataType = currentTab === 'sources' ? 'Sources' : 'Taxes & Fees Items';
+            const dataType = currentTab === 'sources' ? 'Sources' : 
+                           currentTab === 'taxes-fees' ? 'Taxes & Fees Items' : 'Room-related Items';
             statsEl.textContent = `📊 Total ${dataType}: ${count}`;
             statsEl.classList.remove('hidden');
         }
@@ -582,7 +711,7 @@
         }
 
         function createTable(data, dataType) {
-            const suffix = dataType === 'sources' ? '' : '2';
+            const suffix = dataType === 'sources' ? '' : dataType === 'taxes-fees' ? '2' : '3';
             const { items, sources, columns, count } = data;
             const tableData = items || sources || [];
             
@@ -613,8 +742,22 @@
             const bodyEl = document.getElementById('tableBody' + suffix);
             bodyEl.innerHTML = '';
             
-            tableData.forEach(item => {
+            // Process all rows
+            tableData.forEach((item, index) => {
                 const row = document.createElement('tr');
+                const isRoomType = dataType === 'rooms' && item.data_type === 'Room Type';
+                const isRoom = dataType === 'rooms' && item.data_type === 'Room';
+                
+                // Add special styling for room types vs rooms
+                if (isRoomType) {
+                    row.style.backgroundColor = '#e9ecef';
+                    row.style.fontWeight = 'bold';
+                    row.classList.add('room-type-row');
+                } else if (isRoom) {
+                    row.style.backgroundColor = '#f8f9fa';
+                    row.classList.add('room-detail-row');
+                    // Initially visible
+                }
                 
                 columns.forEach(column => {
                     const td = document.createElement('td');
@@ -627,6 +770,12 @@
                         td.textContent = value || '';
                     }
                     
+                    // Add indentation for rooms under room types
+                    if (isRoom && column === 'data_type') {
+                        td.style.paddingLeft = '20px';
+                        td.textContent = '↳ ' + (value || '');
+                    }
+                    
                     row.appendChild(td);
                 });
                 
@@ -636,16 +785,54 @@
             // Update stats and enable export
             updateStats(count, suffix);
             document.getElementById('exportBtn').disabled = false;
+            
+            // Show rooms controls if this is the rooms tab
+            if (dataType === 'rooms') {
+                document.getElementById('roomsControls').classList.remove('hidden');
+            }
+        }
+
+        function toggleAllRoomDetails() {
+            const toggleBtn = document.getElementById('toggleAllBtn');
+            const allRoomDetailRows = document.querySelectorAll('.room-detail-row');
+            
+            console.log('Toggle all room details clicked');
+            console.log('Found room detail rows:', allRoomDetailRows.length);
+            
+            if (allRoomDetailRows.length === 0) {
+                console.log('No room detail rows found');
+                return;
+            }
+            
+            // Check current state - if first room row is visible, then hide all; otherwise show all
+            const isCurrentlyVisible = allRoomDetailRows[0].style.display !== 'none';
+            console.log('Current visibility:', isCurrentlyVisible);
+            
+            // Toggle all room detail rows
+            allRoomDetailRows.forEach((row, index) => {
+                const newDisplay = isCurrentlyVisible ? 'none' : 'table-row';
+                row.style.display = newDisplay;
+                console.log(`Room detail row ${index}: set to ${newDisplay}`);
+            });
+            
+            // Update button text
+            const newButtonText = isCurrentlyVisible ? '▶ Show All Room Details' : '▼ Hide All Room Details';
+            toggleBtn.textContent = newButtonText;
+            console.log('Button text updated to:', newButtonText);
         }
 
         async function testConnection() {
             const accessToken = currentTab === 'sources' ? 
                 document.getElementById('accessToken').value.trim() : 
-                document.getElementById('accessToken2').value.trim();
+                currentTab === 'taxes-fees' ? 
+                document.getElementById('accessToken2').value.trim() :
+                document.getElementById('accessToken3').value.trim();
             const propertyId = currentTab === 'sources' ? 
                 document.getElementById('propertyId').value.trim() : 
-                document.getElementById('propertyId2').value.trim();
-            const suffix = currentTab === 'sources' ? '' : '2';
+                currentTab === 'taxes-fees' ?
+                document.getElementById('propertyId2').value.trim() :
+                document.getElementById('propertyId3').value.trim();
+            const suffix = currentTab === 'sources' ? '' : currentTab === 'taxes-fees' ? '2' : '3';
             
             if (!accessToken || !propertyId) {
                 showConnectionStatus('error', '❌ Please enter both access token and Property ID', suffix);
@@ -670,11 +857,15 @@
         }
 
         function exportCSV() {
-            const dataType = currentTab === 'sources' ? 'sources' : 'taxes-fees';
-            const currentData = currentTab === 'sources' ? sourcesData : taxesFeesData;
+            const dataType = currentTab === 'sources' ? 'sources' : 
+                           currentTab === 'taxes-fees' ? 'taxes-fees' : 'rooms';
+            const currentData = currentTab === 'sources' ? sourcesData : 
+                              currentTab === 'taxes-fees' ? taxesFeesData : roomsData;
             
             if (!currentData) {
-                showMessage('error', `No data to export. Please load ${currentTab === 'sources' ? 'sources' : 'taxes and fees'} first.`);
+                const dataTypeName = currentTab === 'sources' ? 'sources' : 
+                                   currentTab === 'taxes-fees' ? 'taxes and fees' : 'rooms';
+                showMessage('error', `No data to export. Please load ${dataTypeName} first.`);
                 return;
             }
             

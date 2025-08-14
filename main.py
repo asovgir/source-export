@@ -7,32 +7,26 @@ import webbrowser
 import threading
 import time
 import sys
-import csv
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
+from flask import Flask, render_template, request, jsonify, make_response
 
-# Handle PyInstaller bundle paths
+# Flask setup
 if getattr(sys, 'frozen', False):
-    # Running as compiled executable
     application_path = sys._MEIPASS
 else:
-    # Running as script
     application_path = os.path.dirname(os.path.abspath(__file__))
 
-# Set up paths for templates and static files
 template_dir = os.path.join(application_path, 'templates')
 static_dir = os.path.join(application_path, 'static')
 
-# Flask app configuration with correct paths
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
-app.config['SECRET_KEY'] = 'cloudbeds-sources-desktop-app-secret'
+app.config['SECRET_KEY'] = 'cloudbeds-reports-secret'
 
-# Configuration file handling (using JSON instead of YAML)
+# Configuration
 CONFIG_FILE = Path.home() / '.cloudbeds_sources_config.json'
 
 def load_config():
-    """Load configuration from JSON file"""
     try:
         if CONFIG_FILE.exists():
             with open(CONFIG_FILE, 'r') as f:
@@ -42,7 +36,6 @@ def load_config():
     return {}
 
 def save_config(config):
-    """Save configuration to JSON file"""
     try:
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config, f, indent=2)
@@ -51,7 +44,6 @@ def save_config(config):
         print(f"Warning: Could not save configuration: {e}")
 
 def get_credentials():
-    """Get API credentials from config"""
     config = load_config()
     return {
         'access_token': config.get('access_token'),
@@ -61,9 +53,10 @@ def get_credentials():
 # API URLs
 SOURCES_URL = "https://api.cloudbeds.com/api/v1.3/getSources"
 TAXES_FEES_URL = "https://api.cloudbeds.com/api/v1.3/getTaxesAndFees"
+ROOM_TYPES_URL = "https://api.cloudbeds.com/api/v1.3/getRoomTypes"
+ROOMS_URL = "https://api.cloudbeds.com/api/v1.3/getRooms"
 
 def make_api_call(url, params, credentials):
-    """Make API call to Cloudbeds using Bearer token authentication"""
     headers = {
         "Authorization": f"Bearer {credentials['access_token']}",
         "Accept": "application/json",
@@ -73,569 +66,494 @@ def make_api_call(url, params, credentials):
     try:
         response = requests.get(url, headers=headers, params=params, timeout=30)
         print(f"🔗 API call to {url} - Status: {response.status_code}")
-        print(f"📄 Response headers: {dict(response.headers)}")
-        
-        # Log first 500 characters of response for debugging
-        response_preview = response.text[:500] if response.text else "Empty response"
-        print(f"📋 Response preview: {response_preview}")
         
         if response.status_code == 200:
-            try:
-                json_data = response.json()
-                return {'success': True, 'data': json_data}
-            except ValueError as e:
-                print(f"❌ JSON parsing error: {e}")
-                return {'success': False, 'error': f"Invalid JSON response: {response.text[:200]}..."}
-        elif response.status_code == 401:
-            return {'success': False, 'error': "Authentication failed. Please check your access token."}
-        elif response.status_code == 403:
-            return {'success': False, 'error': "Access forbidden. Please check your access token permissions."}
-        elif response.status_code == 429:
-            return {'success': False, 'error': "Rate limit exceeded. Please try again in a few minutes."}
+            data = response.json()
+            print(f"📋 Response preview: {str(data)[:200]}...")
+            return {'success': True, 'data': data}
         else:
+            error_msg = f"HTTP {response.status_code}"
             try:
                 error_data = response.json()
-                error_msg = error_data.get('message', response.text)
+                error_msg = error_data.get('message', error_msg)
             except:
-                error_msg = response.text[:200] if response.text else "Unknown error"
-            return {'success': False, 'error': f"API Error: {response.status_code} - {error_msg}"}
-    except requests.exceptions.Timeout:
-        return {'success': False, 'error': "Request timed out. Please check your internet connection."}
-    except requests.exceptions.ConnectionError:
-        return {'success': False, 'error': "Connection error. Please check your internet connection."}
+                pass
+            return {'success': False, 'error': error_msg}
     except Exception as e:
         return {'success': False, 'error': f"Connection error: {str(e)}"}
 
-def flatten_source_data(source):
-    """Flatten source data for table display"""
-    flattened = {}
-    
-    # Basic source info
-    flattened['propertyID'] = source.get('propertyID', '')
-    flattened['sourceID'] = source.get('sourceID', '')
-    flattened['sourceName'] = source.get('sourceName', '')
-    flattened['isThirdParty'] = source.get('isThirdParty', '')
-    flattened['status'] = source.get('status', '')
-    flattened['commission'] = source.get('commission', '')
-    flattened['paymentCollect'] = source.get('paymentCollect', '')
-    
-    # Handle taxes
-    taxes = source.get('taxes', [])
-    if taxes:
-        for i, tax in enumerate(taxes):
-            flattened[f'tax_{i+1}_taxID'] = tax.get('taxID', '')
-            flattened[f'tax_{i+1}_name'] = tax.get('name', '')
-            flattened[f'tax_{i+1}_amount'] = tax.get('amount', '')
-            flattened[f'tax_{i+1}_amountType'] = tax.get('amountType', '')
-            flattened[f'tax_{i+1}_type'] = tax.get('type', '')
-    else:
-        flattened['taxes'] = 'None'
-    
-    # Handle fees
-    fees = source.get('fees', [])
-    if fees:
-        for i, fee in enumerate(fees):
-            flattened[f'fee_{i+1}_feeID'] = fee.get('feeID', '')
-            flattened[f'fee_{i+1}_name'] = fee.get('name', '')
-            flattened[f'fee_{i+1}_amount'] = fee.get('amount', '')
-            flattened[f'fee_{i+1}_amountType'] = fee.get('amountType', '')
-            flattened[f'fee_{i+1}_type'] = fee.get('type', '')
-    else:
-        flattened['fees'] = 'None'
-    
-    return flattened
+# Data processing functions
+def safe_get(obj, key, default=''):
+    """Safely get a value from a dictionary"""
+    if obj is None or not isinstance(obj, dict):
+        return default
+    return obj.get(key, default)
 
-def get_all_possible_columns(sources_data):
-    """Get all possible column names from all sources"""
-    all_columns = set()
-    for source in sources_data:
-        flattened = flatten_source_data(source)
-        all_columns.update(flattened.keys())
+def process_sources_data(sources_response):
+    """Process sources API response into flat table data"""
+    if not sources_response or not sources_response.get('success'):
+        return []
     
-    # Sort columns for consistent ordering
-    basic_columns = ['propertyID', 'sourceID', 'sourceName', 'isThirdParty', 'status', 'commission', 'paymentCollect']
-    sorted_columns = []
+    data = sources_response['data']
     
-    # Add basic columns first
-    for col in basic_columns:
-        if col in all_columns:
-            sorted_columns.append(col)
-            all_columns.remove(col)
-    
-    # Add remaining columns sorted
-    sorted_columns.extend(sorted(all_columns))
-    
-    return sorted_columns
-
-def flatten_taxes_fees_data(item):
-    """Flatten taxes and fees data for table display"""
-    flattened = {}
-    
-    # Handle all possible fields from the taxes and fees response
-    for key, value in item.items():
-        if isinstance(value, dict):
-            # Flatten nested objects
-            for nested_key, nested_value in value.items():
-                flattened[f"{key}_{nested_key}"] = nested_value
-        elif isinstance(value, list):
-            # Handle arrays by joining them or creating indexed fields
-            if value:
-                if len(value) == 1 and isinstance(value[0], (str, int, float, bool)):
-                    flattened[key] = value[0]
-                else:
-                    for i, list_item in enumerate(value):
-                        if isinstance(list_item, dict):
-                            for nested_key, nested_value in list_item.items():
-                                flattened[f"{key}_{i+1}_{nested_key}"] = nested_value
-                        else:
-                            flattened[f"{key}_{i+1}"] = list_item
+    # Handle nested structure: {"data": [[ sources... ]] }
+    sources = []
+    if isinstance(data, dict) and 'data' in data:
+        nested_data = data['data']
+        if isinstance(nested_data, list) and len(nested_data) > 0:
+            if isinstance(nested_data[0], list):
+                sources = nested_data[0]  # Double nested
             else:
-                flattened[key] = 'None'
-        else:
-            flattened[key] = value
+                sources = nested_data  # Single nested
+    elif isinstance(data, list):
+        sources = data
     
-    return flattened
+    print(f"📊 Processing {len(sources)} sources")
+    
+    processed = []
+    for i, source in enumerate(sources):
+        if source is None:
+            print(f"⚠️ Skipping None source at index {i}")
+            continue
+        
+        try:
+            row = {}
+            
+            # Basic fields
+            row['propertyID'] = safe_get(source, 'propertyID')
+            row['sourceID'] = safe_get(source, 'sourceID')
+            row['sourceName'] = safe_get(source, 'sourceName')
+            row['isThirdParty'] = safe_get(source, 'isThirdParty')
+            row['status'] = safe_get(source, 'status')
+            row['commission'] = safe_get(source, 'commission')
+            row['paymentCollect'] = safe_get(source, 'paymentCollect')
+            
+            # Process taxes
+            taxes = source.get('taxes', [])
+            if isinstance(taxes, list) and taxes:
+                for idx, tax in enumerate(taxes):
+                    if tax is not None and isinstance(tax, dict):
+                        num = idx + 1
+                        row[f'tax_{num}_taxID'] = safe_get(tax, 'taxID')
+                        row[f'tax_{num}_name'] = safe_get(tax, 'name')
+                        row[f'tax_{num}_amount'] = safe_get(tax, 'amount')
+                        row[f'tax_{num}_amountType'] = safe_get(tax, 'amountType')
+                        row[f'tax_{num}_type'] = safe_get(tax, 'type')
+            
+            # Process fees
+            fees = source.get('fees', [])
+            if isinstance(fees, list) and fees:
+                for idx, fee in enumerate(fees):
+                    if fee is not None and isinstance(fee, dict):
+                        num = idx + 1
+                        row[f'fee_{num}_feeID'] = safe_get(fee, 'feeID')
+                        row[f'fee_{num}_name'] = safe_get(fee, 'name')
+                        row[f'fee_{num}_amount'] = safe_get(fee, 'amount')
+                        row[f'fee_{num}_amountType'] = safe_get(fee, 'amountType')
+                        row[f'fee_{num}_type'] = safe_get(fee, 'type')
+            
+            processed.append(row)
+            print(f"✅ Processed source {i+1}: {row.get('sourceName', 'Unknown')}")
+            
+        except Exception as e:
+            print(f"❌ Error processing source {i}: {e}")
+            continue
+    
+    return processed
 
-def get_all_possible_taxes_fees_columns(data):
-    """Get all possible column names from all taxes/fees items"""
-    all_columns = set()
-    for item in data:
-        flattened = flatten_taxes_fees_data(item)
-        all_columns.update(flattened.keys())
+def process_taxes_fees_data(response):
+    """Process taxes/fees API response"""
+    if not response or not response.get('success'):
+        return []
     
-    # Sort columns for consistent ordering
-    basic_columns = ['propertyID', 'taxID', 'feeID', 'name', 'amount', 'amountType', 'type', 'status']
-    sorted_columns = []
+    data = response['data']
+    items = []
     
-    # Add basic columns first if they exist
-    for col in basic_columns:
-        if col in all_columns:
-            sorted_columns.append(col)
-            all_columns.remove(col)
+    if isinstance(data, dict) and 'data' in data:
+        items = data['data'] if isinstance(data['data'], list) else [data['data']]
+    elif isinstance(data, list):
+        items = data
+    elif data is not None:
+        items = [data]
     
-    # Add remaining columns sorted
-    sorted_columns.extend(sorted(all_columns))
+    processed = []
+    for item in items:
+        if item is None:
+            continue
+        
+        row = {}
+        for key, value in item.items():
+            if isinstance(value, (dict, list)):
+                row[key] = str(value)  # Convert complex types to string
+            else:
+                row[key] = value
+        processed.append(row)
     
-    return sorted_columns
+    return processed
+
+def process_rooms_data(room_types_response, rooms_response):
+    """Process room types and rooms into hierarchical structure"""
+    if not room_types_response or not room_types_response.get('success'):
+        return []
+    if not rooms_response or not rooms_response.get('success'):
+        return []
+    
+    # Extract room types
+    rt_data = room_types_response['data']
+    room_types = []
+    if isinstance(rt_data, dict) and 'data' in rt_data:
+        room_types = rt_data['data'] if isinstance(rt_data['data'], list) else [rt_data['data']]
+    elif isinstance(rt_data, list):
+        room_types = rt_data
+    
+    # Extract rooms - handle the nested structure
+    r_data = rooms_response['data']
+    print(f"🔍 Raw rooms response structure: {type(r_data)}")
+    
+    rooms = []
+    if isinstance(r_data, dict) and 'data' in r_data:
+        rooms_data = r_data['data']
+        print(f"🔍 Rooms data type: {type(rooms_data)}")
+        
+        if isinstance(rooms_data, list):
+            # The API returns [{"propertyID": "6000", "rooms": [...]}]
+            for property_data in rooms_data:
+                if isinstance(property_data, dict) and 'rooms' in property_data:
+                    property_rooms = property_data['rooms']
+                    if isinstance(property_rooms, list):
+                        rooms.extend(property_rooms)  # Extract the actual rooms array
+                        print(f"🔍 Extracted {len(property_rooms)} rooms from property {property_data.get('propertyID')}")
+    
+    print(f"📊 Final count - Processing {len(room_types)} room types and {len(rooms)} individual rooms")
+    
+    # Show sample room data if available
+    if rooms:
+        sample_room = rooms[0]
+        print(f"🔍 Sample room data: {sample_room}")
+        if isinstance(sample_room, dict):
+            print(f"🔍 Sample room keys: {list(sample_room.keys())}")
+    
+    processed = []
+    
+    for room_type in room_types:
+        if room_type is None:
+            continue
+        
+        room_type_id = safe_get(room_type, 'roomTypeID')
+        room_type_name = safe_get(room_type, 'roomTypeName')
+        
+        print(f"🏨 Processing room type: {room_type_name} (ID: {room_type_id})")
+        
+        # Add room type row
+        rt_row = {'data_type': 'Room Type'}
+        for key, value in room_type.items():
+            rt_row[f'roomtype_{key}'] = value
+        rt_row['room_id'] = ''
+        rt_row['room_name'] = ''
+        processed.append(rt_row)
+        
+        # Find matching rooms - convert IDs to string for comparison
+        matching_rooms = []
+        for i, room in enumerate(rooms):
+            if room is None:
+                continue
+            
+            # Handle both string and integer room type IDs
+            room_rt_id = safe_get(room, 'roomTypeID')
+            room_name = safe_get(room, 'roomName')
+            room_id = safe_get(room, 'roomID')
+            
+            # Convert both to strings for comparison (API might return integers)
+            room_rt_id_str = str(room_rt_id)
+            room_type_id_str = str(room_type_id)
+            
+            print(f"   Room {i}: {room_name} (ID: {room_id}) belongs to roomTypeID: {room_rt_id} (comparing {room_rt_id_str} vs {room_type_id_str})")
+            
+            if room_rt_id_str == room_type_id_str:
+                matching_rooms.append(room)
+                print(f"     ✅ MATCH! This room belongs to {room_type_name}")
+            else:
+                print(f"     ❌ No match - looking for {room_type_id_str}, found {room_rt_id_str}")
+        
+        print(f"   Found {len(matching_rooms)} rooms for room type {room_type_name}")
+        
+        # Add room rows
+        for room in matching_rooms:
+            r_row = {'data_type': 'Room'}
+            # Add room type info for context
+            for key, value in room_type.items():
+                r_row[f'roomtype_{key}'] = value
+            # Add room info
+            for key, value in room.items():
+                r_row[f'room_{key}'] = value
+            processed.append(r_row)
+            print(f"     + Added room: {safe_get(room, 'roomName')} (ID: {safe_get(room, 'roomID')})")
+    
+    print(f"📊 Total processed items: {len(processed)}")
+    return processed
+
+def get_all_columns(data_list):
+    """Get all unique column names from processed data"""
+    if not data_list:
+        return []
+    
+    all_cols = set()
+    for row in data_list:
+        if isinstance(row, dict):
+            all_cols.update(row.keys())
+    
+    # Sort with important columns first
+    priority_cols = ['data_type', 'propertyID', 'sourceID', 'sourceName', 'roomtype_roomTypeID', 'roomtype_roomTypeName', 'room_roomID', 'room_roomName']
+    sorted_cols = []
+    
+    for col in priority_cols:
+        if col in all_cols:
+            sorted_cols.append(col)
+            all_cols.remove(col)
+    
+    sorted_cols.extend(sorted(all_cols))
+    return sorted_cols
+
+def normalize_data(data_list, all_columns):
+    """Ensure all rows have all columns"""
+    for row in data_list:
+        for col in all_columns:
+            if col not in row:
+                row[col] = ''
+    return data_list
 
 # Routes
 @app.route('/')
 def index():
-    """Main page - single page app"""
-    config = load_config()
-    return render_template('index.html', config=config)
+    return render_template('index.html')
 
 @app.route('/api/save-settings', methods=['POST'])
 def save_settings():
-    """Save API credentials via AJAX"""
     try:
         data = request.get_json()
         config = {
             'access_token': data.get('access_token', '').strip(),
             'property_id': data.get('property_id', '6000').strip()
         }
-        
         save_config(config)
         return jsonify({'success': True, 'message': 'Settings saved successfully!'})
     except Exception as e:
-        return jsonify({'success': False, 'error': f'Failed to save settings: {str(e)}'})
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/get-settings')
 def get_settings():
-    """Get current settings"""
-    config = load_config()
-    return jsonify({'success': True, 'data': config})
+    return jsonify({'success': True, 'data': load_config()})
 
 @app.route('/api/test-connection')
 def test_connection():
-    """Test API connection"""
-    print("🧪 Testing API connection...")
-    
-    # Get current form data if available, otherwise use saved config
     form_access_token = request.args.get('access_token')
     form_property_id = request.args.get('property_id')
     
     if form_access_token and form_property_id:
-        # Use form data for testing (before saving)
         credentials = {
             'access_token': form_access_token.strip(),
             'property_id': form_property_id.strip()
         }
-        print("🔧 Using form data for test")
     else:
-        # Use saved credentials
         credentials = get_credentials()
-        print("🔧 Using saved credentials for test")
     
-    # Validate credentials
-    if not credentials['access_token'] or not credentials['access_token'].strip():
-        return jsonify({
-            'success': False, 
-            'error': 'Please configure your access token first.'
-        })
+    if not credentials['access_token']:
+        return jsonify({'success': False, 'error': 'Please configure your access token first.'})
     
-    if not credentials['property_id'] or not credentials['property_id'].strip():
-        return jsonify({
-            'success': False, 
-            'error': 'Please provide a valid Property ID.'
-        })
-    
-    print(f"🔗 Testing API call for property: {credentials['property_id']}")
-    
-    result = make_api_call(SOURCES_URL, {
-        'propertyID': credentials['property_id']
-    }, credentials)
+    result = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
     
     if result['success']:
-        try:
-            response_data = result['data']
-            if isinstance(response_data, dict) and 'data' in response_data:
-                sources_data = response_data.get('data', [])
-                if isinstance(sources_data, list) and len(sources_data) > 0:
-                    sources_count = len(sources_data[0]) if sources_data[0] else 0
-                else:
-                    sources_count = 0
-                    
-                print(f"✅ API test successful - found {sources_count} sources")
-                
-                if sources_count > 0:
-                    message = f'Connection successful! Found {sources_count} sources in your property.'
-                else:
-                    message = 'Connection successful! No sources found, but API access is working.'
-                
-                return jsonify({
-                    'success': True, 
-                    'message': message,
-                    'details': {
-                        'property_id': credentials['property_id'],
-                        'sources_found': sources_count
-                    }
-                })
-            else:
-                return jsonify({
-                    'success': False, 
-                    'error': 'API connection successful but received unexpected response format.'
-                })
-        except Exception as e:
-            print(f"⚠️ API response validation error: {e}")
-            return jsonify({
-                'success': False, 
-                'error': f'API connection successful but response validation failed: {str(e)}'
-            })
+        return jsonify({'success': True, 'message': 'Connection successful!'})
     else:
-        print(f"❌ API test failed: {result['error']}")
-        return jsonify({
-            'success': False, 
-            'error': result['error']
-        })
+        return jsonify({'success': False, 'error': result['error']})
 
 @app.route('/api/sources')
 def get_sources():
-    """Main API endpoint for fetching sources"""
     try:
         credentials = get_credentials()
         
         if not credentials['access_token']:
-            return jsonify({'success': False, 'error': 'Access token not configured. Please check settings.'})
+            return jsonify({'success': False, 'error': 'Access token not configured'})
         
         print(f"🚀 Fetching sources for property {credentials['property_id']}")
-        print(f"🔑 Using access token: {credentials['access_token'][:10]}...")
         
-        # Fetch sources
-        sources_response = make_api_call(SOURCES_URL, {
-            'propertyID': credentials['property_id']
-        }, credentials)
+        response = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
         
-        if not sources_response['success']:
-            print(f"❌ Sources API call failed: {sources_response['error']}")
-            return jsonify({'success': False, 'error': f"Failed to fetch sources: {sources_response['error']}"})
+        if not response['success']:
+            return jsonify({'success': False, 'error': response['error']})
         
-        # Extract sources data
-        response_data = sources_response['data']
-        print(f"📊 Raw API response structure: {type(response_data)}")
-        print(f"📊 Response keys: {list(response_data.keys()) if isinstance(response_data, dict) else 'Not a dict'}")
-        
-        sources_data = []
-        
-        # Handle the nested structure from your JSON example
-        if 'data' in response_data and isinstance(response_data['data'], list):
-            if len(response_data['data']) > 0 and isinstance(response_data['data'][0], list):
-                sources_data = response_data['data'][0]
-                print(f"📊 Found nested list structure with {len(sources_data)} items")
-            else:
-                sources_data = response_data['data']
-                print(f"📊 Found direct list structure with {len(sources_data)} items")
-        elif isinstance(response_data, list):
-            sources_data = response_data
-            print(f"📊 Response is direct list with {len(sources_data)} items")
-        else:
-            print(f"⚠️ Unexpected response structure: {response_data}")
-            return jsonify({'success': False, 'error': f"Unexpected API response structure: {type(response_data)}"})
-        
-        print(f"Found {len(sources_data)} sources")
-        
-        if not sources_data:
-            return jsonify({
-                'success': True, 
-                'data': {
-                    'sources': [],
-                    'columns': [],
-                    'count': 0
-                }
-            })
-        
-        # Get all possible columns for consistent table structure
-        all_columns = get_all_possible_columns(sources_data)
-        print(f"📊 Generated {len(all_columns)} columns")
-        
-        # Flatten all sources data
-        flattened_sources = []
-        for i, source in enumerate(sources_data):
-            try:
-                flattened = flatten_source_data(source)
-                # Ensure all columns are present (fill missing with empty string)
-                for col in all_columns:
-                    if col not in flattened:
-                        flattened[col] = ''
-                flattened_sources.append(flattened)
-                print(f"📊 Processed source {i+1}/{len(sources_data)}")
-            except Exception as e:
-                print(f"❌ Error processing source {i}: {e}")
-                continue
-        
-        print(f"✅ Successfully processed {len(flattened_sources)} sources")
+        processed_data = process_sources_data(response)
+        all_columns = get_all_columns(processed_data)
+        normalized_data = normalize_data(processed_data, all_columns)
         
         return jsonify({
-            'success': True, 
+            'success': True,
             'data': {
-                'sources': flattened_sources,
+                'sources': normalized_data,
                 'columns': all_columns,
-                'count': len(flattened_sources)
+                'count': len(normalized_data)
             }
         })
-    
+        
     except Exception as e:
-        print(f"❌ Critical error in get_sources: {e}")
-        return jsonify({'success': False, 'error': f"Critical error: {str(e)}"})
+        print(f"❌ Error in get_sources: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/taxes-fees')
 def get_taxes_fees():
-    """API endpoint for fetching taxes and fees"""
-    credentials = get_credentials()
-    
-    if not credentials['access_token']:
-        return jsonify({'success': False, 'error': 'Access token not configured. Please check settings.'})
-    
-    print(f"🚀 Fetching taxes and fees for property {credentials['property_id']}")
-    
-    # Fetch taxes and fees
-    response = make_api_call(TAXES_FEES_URL, {
-        'propertyID': credentials['property_id']
-    }, credentials)
-    
-    if not response['success']:
-        return jsonify({'success': False, 'error': f"Failed to fetch taxes and fees: {response['error']}"})
-    
-    # Extract data
-    response_data = response['data']
-    taxes_fees_data = []
-    
-    # Handle the response structure
-    if 'data' in response_data:
-        if isinstance(response_data['data'], list):
-            taxes_fees_data = response_data['data']
-        elif isinstance(response_data['data'], dict):
-            # If data is an object, convert to list
-            taxes_fees_data = [response_data['data']]
-    else:
-        # If no 'data' key, assume the response itself is the data
-        if isinstance(response_data, list):
-            taxes_fees_data = response_data
-        else:
-            taxes_fees_data = [response_data]
-    
-    print(f"Found {len(taxes_fees_data)} taxes and fees items")
-    
-    # Get all possible columns for consistent table structure
-    all_columns = get_all_possible_taxes_fees_columns(taxes_fees_data)
-    
-    # Flatten all data
-    flattened_data = []
-    for item in taxes_fees_data:
-        flattened = flatten_taxes_fees_data(item)
-        # Ensure all columns are present (fill missing with empty string)
-        for col in all_columns:
-            if col not in flattened:
-                flattened[col] = ''
-        flattened_data.append(flattened)
-    
-    return jsonify({
-        'success': True, 
-        'data': {
-            'items': flattened_data,
-            'columns': all_columns,
-            'count': len(flattened_data)
-        }
-    })
+    try:
+        credentials = get_credentials()
+        
+        if not credentials['access_token']:
+            return jsonify({'success': False, 'error': 'Access token not configured'})
+        
+        print(f"🚀 Fetching taxes/fees for property {credentials['property_id']}")
+        
+        response = make_api_call(TAXES_FEES_URL, {'propertyID': credentials['property_id']}, credentials)
+        
+        if not response['success']:
+            return jsonify({'success': False, 'error': response['error']})
+        
+        processed_data = process_taxes_fees_data(response)
+        all_columns = get_all_columns(processed_data)
+        normalized_data = normalize_data(processed_data, all_columns)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'items': normalized_data,
+                'columns': all_columns,
+                'count': len(normalized_data)
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in get_taxes_fees: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/rooms')
+def get_rooms():
+    try:
+        credentials = get_credentials()
+        
+        if not credentials['access_token']:
+            return jsonify({'success': False, 'error': 'Access token not configured'})
+        
+        print(f"🚀 Fetching rooms for property {credentials['property_id']}")
+        
+        # Get room types
+        rt_response = make_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
+        if not rt_response['success']:
+            return jsonify({'success': False, 'error': f"Room types: {rt_response['error']}"})
+        
+        # Get rooms
+        r_response = make_api_call(ROOMS_URL, {'propertyID': credentials['property_id']}, credentials)
+        if not r_response['success']:
+            return jsonify({'success': False, 'error': f"Rooms: {r_response['error']}"})
+        
+        processed_data = process_rooms_data(rt_response, r_response)
+        all_columns = get_all_columns(processed_data)
+        normalized_data = normalize_data(processed_data, all_columns)
+        
+        # Count room types and rooms
+        room_types_count = len([r for r in processed_data if r.get('data_type') == 'Room Type'])
+        rooms_count = len([r for r in processed_data if r.get('data_type') == 'Room'])
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'items': normalized_data,
+                'columns': all_columns,
+                'count': len(normalized_data),
+                'room_types_count': room_types_count,
+                'rooms_count': rooms_count
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in get_rooms: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/export/csv')
 def export_csv():
-    """Export sources data to CSV"""
     data_type = request.args.get('type', 'sources')
     credentials = get_credentials()
     
     if not credentials['access_token']:
         return "Access token not configured", 400
     
-    print(f"📊 Exporting {data_type} to CSV for property {credentials['property_id']}")
-    
-    if data_type == 'taxes-fees':
-        # Fetch taxes and fees data
-        response = make_api_call(TAXES_FEES_URL, {
-            'propertyID': credentials['property_id']
-        }, credentials)
-        
-        if not response['success']:
-            return f"Failed to fetch taxes and fees: {response['error']}", 500
-        
-        # Extract and process data
-        response_data = response['data']
-        data_items = []
-        
-        if 'data' in response_data:
-            if isinstance(response_data['data'], list):
-                data_items = response_data['data']
-            elif isinstance(response_data['data'], dict):
-                data_items = [response_data['data']]
+    try:
+        if data_type == 'sources':
+            response = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
+            if not response['success']:
+                return f"Error: {response['error']}", 500
+            data = process_sources_data(response)
+            filename = f"cloudbeds_sources_{credentials['property_id']}"
+            
+        elif data_type == 'taxes-fees':
+            response = make_api_call(TAXES_FEES_URL, {'propertyID': credentials['property_id']}, credentials)
+            if not response['success']:
+                return f"Error: {response['error']}", 500
+            data = process_taxes_fees_data(response)
+            filename = f"cloudbeds_taxes_fees_{credentials['property_id']}"
+            
+        elif data_type == 'rooms':
+            rt_response = make_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
+            r_response = make_api_call(ROOMS_URL, {'propertyID': credentials['property_id']}, credentials)
+            if not rt_response['success']:
+                return f"Error: {rt_response['error']}", 500
+            if not r_response['success']:
+                return f"Error: {r_response['error']}", 500
+            data = process_rooms_data(rt_response, r_response)
+            filename = f"cloudbeds_rooms_{credentials['property_id']}"
+            
         else:
-            if isinstance(response_data, list):
-                data_items = response_data
-            else:
-                data_items = [response_data]
+            return "Invalid data type", 400
         
-        # Get all columns and flatten data
-        all_columns = get_all_possible_taxes_fees_columns(data_items)
-        flattened_data = []
-        for item in data_items:
-            flattened = flatten_taxes_fees_data(item)
-            # Ensure all columns are present
+        if not data:
+            return "No data to export", 404
+        
+        # Generate CSV
+        all_columns = get_all_columns(data)
+        normalized_data = normalize_data(data, all_columns)
+        
+        csv_rows = []
+        csv_rows.append(','.join(f'"{col}"' for col in all_columns))
+        
+        for row in normalized_data:
+            csv_row = []
             for col in all_columns:
-                if col not in flattened:
-                    flattened[col] = ''
-            flattened_data.append(flattened)
+                value = str(row.get(col, ''))
+                value = value.replace('"', '""')  # Escape quotes
+                csv_row.append(f'"{value}"')
+            csv_rows.append(','.join(csv_row))
         
-        filename_prefix = "cloudbeds_taxes_fees"
+        csv_content = '\n'.join(csv_rows)
         
-    else:
-        # Fetch sources data (existing functionality)
-        response = make_api_call(SOURCES_URL, {
-            'propertyID': credentials['property_id']
-        }, credentials)
+        response = make_response(csv_content)
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         
-        if not response['success']:
-            return f"Failed to fetch sources: {response['error']}", 500
+        return response
         
-        # Extract and process sources data
-        response_data = response['data']
-        data_items = []
-        
-        if 'data' in response_data and isinstance(response_data['data'], list):
-            if len(response_data['data']) > 0 and isinstance(response_data['data'][0], list):
-                data_items = response_data['data'][0]
-            else:
-                data_items = response_data['data']
-        
-        # Get all columns and flatten data
-        all_columns = get_all_possible_columns(data_items)
-        flattened_data = []
-        for item in data_items:
-            flattened = flatten_source_data(item)
-            # Ensure all columns are present
-            for col in all_columns:
-                if col not in flattened:
-                    flattened[col] = ''
-            flattened_data.append(flattened)
-        
-        filename_prefix = "cloudbeds_sources"
-    
-    # Create CSV response
-    output = []
-    
-    # Write header
-    output.append(','.join(f'"{col}"' for col in all_columns))
-    
-    # Write data rows
-    for item in flattened_data:
-        row = []
-        for col in all_columns:
-            value = str(item.get(col, ''))
-            # Escape quotes in CSV
-            value = value.replace('"', '""')
-            row.append(f'"{value}"')
-        output.append(','.join(row))
-    
-    csv_content = '\n'.join(output)
-    
-    # Create response
-    response = make_response(csv_content)
-    response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename={filename_prefix}_{credentials["property_id"]}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    
-    print(f"✅ CSV export completed - {len(flattened_data)} items exported")
-    
-    return response
-
-@app.route('/shutdown', methods=['POST'])
-def shutdown():
-    """Shutdown endpoint for desktop app"""
-    print("🛑 Shutting down application...")
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        # For newer versions of Werkzeug
-        os._exit(0)
-    func()
-    return 'Server shutting down...'
+    except Exception as e:
+        return f"Export error: {str(e)}", 500
 
 def open_browser():
-    """Open browser after a short delay"""
     time.sleep(2)
     webbrowser.open('http://localhost:5000')
 
-def find_free_port():
-    """Find a free port starting from 5000"""
-    import socket
-    for port in range(5000, 5100):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('127.0.0.1', port))
-                return port
-        except OSError:
-            continue
-    return 5000  # fallback
-
 if __name__ == '__main__':
-    print("\n🏨 Cloudbeds Sources Report - Desktop App")
+    print("\n🏨 Cloudbeds Reports - Desktop App")
     print("=" * 50)
-    
-    # Debug: Print paths when running as executable
-    if getattr(sys, 'frozen', False):
-        print(f"📁 Template directory: {template_dir}")
-        print(f"📁 Static directory: {static_dir}")
-        print(f"📁 Application path: {application_path}")
-    
-    # Find an available port
-    port = find_free_port()
-    
-    print(f"📊 Starting server on http://localhost:{port}")
+    print("📊 Starting server on http://localhost:5000")
     print("🌐 Opening browser automatically...")
     print("❌ Close this window to stop the application\n")
     
-    # Auto-open browser in a separate thread
     threading.Thread(target=open_browser, daemon=True).start()
     
     try:
-        # Start the Flask server
-        app.run(host='127.0.0.1', port=port, debug=False)
+        app.run(host='127.0.0.1', port=5000, debug=False)
     except KeyboardInterrupt:
         print("\n🛑 Application stopped by user")
         sys.exit(0)
