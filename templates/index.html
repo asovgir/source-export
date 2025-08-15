@@ -1086,12 +1086,8 @@
                     const result = await response.json();
                     
                     if (result.success && result.data && result.data.items) {
-                        // Add property ID to each item
-                        const itemsWithPropertyId = result.data.items.map(item => ({
-                            propertyID: propertyId,
-                            ...item
-                        }));
-                        allData.push(...itemsWithPropertyId);
+                        // The backend should already have the correct propertyID, just add the data
+                        allData.push(...result.data.items);
                         successCount++;
                         console.log(`✅ Loaded ${result.data.items.length} items for property ${propertyId}`);
                     } else {
@@ -1519,12 +1515,8 @@
                     const result = await response.json();
                     
                     if (result.success && result.data && result.data.sources) {
-                        // Add property ID to each item
-                        const sourcesWithPropertyId = result.data.sources.map(item => ({
-                            propertyID: propertyId,
-                            ...item
-                        }));
-                        allData.push(...sourcesWithPropertyId);
+                        // The backend should already have the correct propertyID, just add the data
+                        allData.push(...result.data.sources);
                         successCount++;
                         console.log(`✅ Loaded ${result.data.sources.length} sources for property ${propertyId}`);
                     } else {

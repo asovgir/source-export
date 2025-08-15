@@ -640,16 +640,29 @@ def get_sources():
         if not credentials['access_token']:
             return jsonify({'success': False, 'error': 'Access token not configured'})
         
-        print(f"🚀 Fetching sources for property {credentials['property_id']}")
+        # Support custom property ID from query parameter for bulk loading
+        property_id = request.args.get('propertyID', credentials['property_id'])
         
-        response = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
+        print(f"🚀 Fetching sources for property {property_id}")
+        print(f"🔍 URL parameter propertyID: {request.args.get('propertyID')}")
+        print(f"🔍 Using property_id: {property_id}")
+        
+        response = make_api_call(SOURCES_URL, {'propertyID': property_id}, credentials)
         
         if not response['success']:
             return jsonify({'success': False, 'error': response['error']})
         
         processed_data = process_sources_data(response)
+        
+        # FORCE set propertyID to the requested property_id for ALL rows
+        for row in processed_data:
+            row['propertyID'] = property_id
+            print(f"🔍 Set propertyID to {property_id} for row")
+        
         all_columns = get_all_columns(processed_data)
         normalized_data = normalize_data(processed_data, all_columns)
+        
+        print(f"🔍 Final data sample - first row propertyID: {normalized_data[0].get('propertyID') if normalized_data else 'No data'}")
         
         return jsonify({
             'success': True,
@@ -676,6 +689,8 @@ def get_taxes_fees():
         property_id = request.args.get('propertyID', credentials['property_id'])
         
         print(f"🚀 Fetching taxes/fees for property {property_id}")
+        print(f"🔍 URL parameter propertyID: {request.args.get('propertyID')}")
+        print(f"🔍 Using property_id: {property_id}")
         
         response = make_api_call(TAXES_FEES_URL, {'propertyID': property_id}, credentials)
         
@@ -684,12 +699,15 @@ def get_taxes_fees():
         
         processed_data = process_taxes_fees_data(response)
         
-        # Add propertyID to each row since the API doesn't include it
+        # FORCE set propertyID to the requested property_id for ALL rows
         for row in processed_data:
             row['propertyID'] = property_id
+            print(f"🔍 Set propertyID to {property_id} for row")
         
         all_columns = get_all_columns(processed_data)
         normalized_data = normalize_data(processed_data, all_columns)
+        
+        print(f"🔍 Final data sample - first row propertyID: {normalized_data[0].get('propertyID') if normalized_data else 'No data'}")
         
         return jsonify({
             'success': True,
@@ -757,10 +775,40 @@ def export_csv():
     
     try:
         if data_type == 'sources':
-            response = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
-            if not response['success']:
-                return f"Error: {response['error']}", 500
-            data = process_sources_data(response)
+            # For sources, we need to handle both single property and bulk property exports
+            bulk_property_ids = request.args.get('bulkPropertyIds', '')
+            
+            if bulk_property_ids:
+                # Handle bulk export - load data for multiple properties
+                property_ids = bulk_property_ids.split(',')
+                all_data = []
+                
+                for prop_id in property_ids:
+                    prop_id = prop_id.strip()
+                    if prop_id:
+                        response = make_api_call(SOURCES_URL, {'propertyID': prop_id}, credentials)
+                        if response['success']:
+                            prop_data = process_sources_data(response)
+                            # Add propertyID to each row
+                            for row in prop_data:
+                                if 'propertyID' not in row or not row['propertyID']:
+                                    row['propertyID'] = prop_id
+                            all_data.extend(prop_data)
+                
+                # Sort by propertyID
+                all_data.sort(key=lambda x: int(x.get('propertyID', 0)))
+                data = all_data
+            else:
+                # Single property export
+                response = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
+                if not response['success']:
+                    return f"Error: {response['error']}", 500
+                data = process_sources_data(response)
+                # Add propertyID to each row for consistency
+                for row in data:
+                    if 'propertyID' not in row or not row['propertyID']:
+                        row['propertyID'] = credentials['property_id']
+            
             filename = f"cloudbeds_sources_{credentials['property_id']}"
             
         elif data_type == 'taxes-fees':
