@@ -241,6 +241,7 @@
             <button class="tab" onclick="switchTab('taxes-fees')">Taxes and Fees</button>
             <button class="tab" onclick="switchTab('rooms')">Rooms</button>
             <button class="tab" onclick="switchTab('payment-methods')">Payment Types</button>
+            <button class="tab" onclick="switchTab('items')">Items</button>
         </div>
 
         <!-- Sources Tab Content -->
@@ -424,6 +425,50 @@
                 <p>📋 No payment methods data loaded. Configure your access token above and click "Load Payment Types" to fetch data.</p>
             </div>
         </div>
+
+        <!-- Items Tab Content -->
+        <div id="items-content" class="tab-content">
+            <!-- Settings Section (shared) -->
+            <div class="settings-section">
+                <h3>⚙️ API Settings</h3>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="accessToken5">Access Token:</label>
+                        <input type="password" id="accessToken5" placeholder="Enter your Cloudbeds access token">
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyId5">Property ID:</label>
+                        <input type="text" id="propertyId5" placeholder="Enter your Property ID (e.g., 6000)">
+                    </div>
+                    <div class="settings-buttons">
+                        <button onclick="loadData()" id="loadBtn5">Load Items</button>
+                        <button onclick="testConnection()" id="testBtn5" class="btn-warning">Test Connection</button>
+                    </div>
+                </div>
+                <div id="connectionStatus5" class="connection-status hidden"></div>
+            </div>
+
+            <div id="loading5" class="loading hidden">
+                <p>🔄 Loading items data...</p>
+            </div>
+
+            <div id="error5" class="error hidden"></div>
+            <div id="success5" class="success hidden"></div>
+            <div id="info5" class="info hidden"></div>
+
+            <div id="stats5" class="stats hidden"></div>
+
+            <div id="tableContainer5" class="table-container hidden">
+                <table id="dataTable5">
+                    <thead id="tableHeader5"></thead>
+                    <tbody id="tableBody5"></tbody>
+                </table>
+            </div>
+
+            <div id="noData5" class="info hidden">
+                <p>📋 No items data loaded. Configure your access token above and click "Load Items" to fetch data.</p>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -431,6 +476,7 @@
         let taxesFeesData = null;
         let roomsData = null;
         let paymentMethodsData = null;
+        let itemsData = null;
         let currentTab = 'sources';
 
         // Load saved settings on page load
@@ -453,45 +499,55 @@
             const loadBtn = currentTab === 'sources' ? document.getElementById('loadBtn') : 
                           currentTab === 'taxes-fees' ? document.getElementById('loadBtn2') :
                           currentTab === 'rooms' ? document.getElementById('loadBtn3') :
-                          document.getElementById('loadBtn4');
+                          currentTab === 'payment-methods' ? document.getElementById('loadBtn4') :
+                          document.getElementById('loadBtn5');
             loadBtn.textContent = currentTab === 'sources' ? 'Load Sources' : 
                                 currentTab === 'taxes-fees' ? 'Load Taxes & Fees' : 
-                                currentTab === 'rooms' ? 'Load Rooms' : 'Load Payment Types';
+                                currentTab === 'rooms' ? 'Load Rooms' : 
+                                currentTab === 'payment-methods' ? 'Load Payment Types' : 'Load Items';
             
             // Sync settings between tabs
             syncSettings();
         }
 
         function syncSettings() {
+            const allTokens = ['accessToken', 'accessToken2', 'accessToken3', 'accessToken4', 'accessToken5'];
+            const allPropertyIds = ['propertyId', 'propertyId2', 'propertyId3', 'propertyId4', 'propertyId5'];
+            
+            let currentTokenId, currentPropertyId;
+            
             if (currentTab === 'sources') {
-                document.getElementById('accessToken2').value = document.getElementById('accessToken').value;
-                document.getElementById('propertyId2').value = document.getElementById('propertyId').value;
-                document.getElementById('accessToken3').value = document.getElementById('accessToken').value;
-                document.getElementById('propertyId3').value = document.getElementById('propertyId').value;
-                document.getElementById('accessToken4').value = document.getElementById('accessToken').value;
-                document.getElementById('propertyId4').value = document.getElementById('propertyId').value;
+                currentTokenId = 'accessToken';
+                currentPropertyId = 'propertyId';
             } else if (currentTab === 'taxes-fees') {
-                document.getElementById('accessToken').value = document.getElementById('accessToken2').value;
-                document.getElementById('propertyId').value = document.getElementById('propertyId2').value;
-                document.getElementById('accessToken3').value = document.getElementById('accessToken2').value;
-                document.getElementById('propertyId3').value = document.getElementById('propertyId2').value;
-                document.getElementById('accessToken4').value = document.getElementById('accessToken2').value;
-                document.getElementById('propertyId4').value = document.getElementById('propertyId2').value;
+                currentTokenId = 'accessToken2';
+                currentPropertyId = 'propertyId2';
             } else if (currentTab === 'rooms') {
-                document.getElementById('accessToken').value = document.getElementById('accessToken3').value;
-                document.getElementById('propertyId').value = document.getElementById('propertyId3').value;
-                document.getElementById('accessToken2').value = document.getElementById('accessToken3').value;
-                document.getElementById('propertyId2').value = document.getElementById('propertyId3').value;
-                document.getElementById('accessToken4').value = document.getElementById('accessToken3').value;
-                document.getElementById('propertyId4').value = document.getElementById('propertyId3').value;
+                currentTokenId = 'accessToken3';
+                currentPropertyId = 'propertyId3';
+            } else if (currentTab === 'payment-methods') {
+                currentTokenId = 'accessToken4';
+                currentPropertyId = 'propertyId4';
             } else {
-                document.getElementById('accessToken').value = document.getElementById('accessToken4').value;
-                document.getElementById('propertyId').value = document.getElementById('propertyId4').value;
-                document.getElementById('accessToken2').value = document.getElementById('accessToken4').value;
-                document.getElementById('propertyId2').value = document.getElementById('propertyId4').value;
-                document.getElementById('accessToken3').value = document.getElementById('accessToken4').value;
-                document.getElementById('propertyId3').value = document.getElementById('propertyId4').value;
+                currentTokenId = 'accessToken5';
+                currentPropertyId = 'propertyId5';
             }
+            
+            const tokenValue = document.getElementById(currentTokenId).value;
+            const propertyValue = document.getElementById(currentPropertyId).value;
+            
+            // Sync all other fields
+            allTokens.forEach(id => {
+                if (id !== currentTokenId) {
+                    document.getElementById(id).value = tokenValue;
+                }
+            });
+            
+            allPropertyIds.forEach(id => {
+                if (id !== currentPropertyId) {
+                    document.getElementById(id).value = propertyValue;
+                }
+            });
         }
 
         async function loadSettings() {
@@ -508,6 +564,8 @@
                     document.getElementById('propertyId3').value = result.data.property_id || '6000';
                     document.getElementById('accessToken4').value = result.data.access_token || '';
                     document.getElementById('propertyId4').value = result.data.property_id || '6000';
+                    document.getElementById('accessToken5').value = result.data.access_token || '';
+                    document.getElementById('propertyId5').value = result.data.property_id || '6000';
                     
                     // If settings exist, show success status
                     if (result.data.access_token) {
@@ -528,8 +586,10 @@
                 await loadTaxesFees();
             } else if (currentTab === 'rooms') {
                 await loadRooms();
-            } else {
+            } else if (currentTab === 'payment-methods') {
                 await loadPaymentMethods();
+            } else {
+                await loadItems();
             }
         }
 
@@ -769,6 +829,65 @@
             }
         }
 
+        async function loadItems() {
+            // Save settings and load items
+            const accessToken = document.getElementById('accessToken5').value.trim();
+            const propertyId = document.getElementById('propertyId5').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your access token', '5');
+                return;
+            }
+            
+            if (!propertyId) {
+                showMessage('error', 'Please enter your Property ID', '5');
+                return;
+            }
+            
+            try {
+                setLoading(true, '5');
+                
+                // Save settings first
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyId
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`, '5');
+                    return;
+                }
+                
+                // Then load items
+                const response = await fetch('/api/items');
+                const result = await response.json();
+                
+                if (result.success) {
+                    itemsData = result.data;
+                    createTable(result.data, 'items');
+                    showMessage('success', `Successfully loaded ${result.data.count} items!`, '5');
+                    showConnectionStatus('success', '✅ Settings saved and items loaded', '5');
+                } else {
+                    showMessage('error', `Failed to load items: ${result.error}`, '5');
+                    hideTable('5');
+                    showNoData('5');
+                }
+            } catch (error) {
+                console.error('Error loading items:', error);
+                showMessage('error', `Error loading items: ${error.message}`, '5');
+            } finally {
+                setLoading(false, '5');
+            }
+        }
+
         function showConnectionStatus(type, message, suffix = '') {
             const statusEl = document.getElementById('connectionStatus' + suffix);
             statusEl.className = `connection-status status-${type}`;
@@ -815,7 +934,8 @@
                 loadBtn.disabled = false;
                 loadBtn.textContent = currentTab === 'sources' ? 'Load Sources' : 
                                     currentTab === 'taxes-fees' ? 'Load Taxes & Fees' : 
-                                    currentTab === 'rooms' ? 'Load Rooms' : 'Load Payment Types';
+                                    currentTab === 'rooms' ? 'Load Rooms' : 
+                                    currentTab === 'payment-methods' ? 'Load Payment Types' : 'Load Items';
             }
         }
 
@@ -823,7 +943,8 @@
             const statsEl = document.getElementById('stats' + suffix);
             const dataType = currentTab === 'sources' ? 'Sources' : 
                            currentTab === 'taxes-fees' ? 'Taxes & Fees Items' : 
-                           currentTab === 'rooms' ? 'Room-related Items' : 'Payment Items';
+                           currentTab === 'rooms' ? 'Room-related Items' : 
+                           currentTab === 'payment-methods' ? 'Payment Items' : 'Items';
             statsEl.textContent = `📊 Total ${dataType}: ${count}`;
             statsEl.classList.remove('hidden');
         }
@@ -839,7 +960,8 @@
         function createTable(data, dataType) {
             const suffix = dataType === 'sources' ? '' : 
                           dataType === 'taxes-fees' ? '2' : 
-                          dataType === 'rooms' ? '3' : '4';
+                          dataType === 'rooms' ? '3' : 
+                          dataType === 'payment-methods' ? '4' : '5';
             const { items, sources, columns, count } = data;
             const tableData = items || sources || [];
             
@@ -965,17 +1087,22 @@
                 document.getElementById('accessToken2').value.trim() :
                 currentTab === 'rooms' ?
                 document.getElementById('accessToken3').value.trim() :
-                document.getElementById('accessToken4').value.trim();
+                currentTab === 'payment-methods' ?
+                document.getElementById('accessToken4').value.trim() :
+                document.getElementById('accessToken5').value.trim();
             const propertyId = currentTab === 'sources' ? 
                 document.getElementById('propertyId').value.trim() : 
                 currentTab === 'taxes-fees' ?
                 document.getElementById('propertyId2').value.trim() :
                 currentTab === 'rooms' ?
                 document.getElementById('propertyId3').value.trim() :
-                document.getElementById('propertyId4').value.trim();
+                currentTab === 'payment-methods' ?
+                document.getElementById('propertyId4').value.trim() :
+                document.getElementById('propertyId5').value.trim();
             const suffix = currentTab === 'sources' ? '' : 
                           currentTab === 'taxes-fees' ? '2' : 
-                          currentTab === 'rooms' ? '3' : '4';
+                          currentTab === 'rooms' ? '3' : 
+                          currentTab === 'payment-methods' ? '4' : '5';
             
             if (!accessToken || !propertyId) {
                 showConnectionStatus('error', '❌ Please enter both access token and Property ID', suffix);
@@ -1002,15 +1129,18 @@
         function exportCSV() {
             const dataType = currentTab === 'sources' ? 'sources' : 
                            currentTab === 'taxes-fees' ? 'taxes-fees' : 
-                           currentTab === 'rooms' ? 'rooms' : 'payment-methods';
+                           currentTab === 'rooms' ? 'rooms' : 
+                           currentTab === 'payment-methods' ? 'payment-methods' : 'items';
             const currentData = currentTab === 'sources' ? sourcesData : 
                               currentTab === 'taxes-fees' ? taxesFeesData : 
-                              currentTab === 'rooms' ? roomsData : paymentMethodsData;
+                              currentTab === 'rooms' ? roomsData : 
+                              currentTab === 'payment-methods' ? paymentMethodsData : itemsData;
             
             if (!currentData) {
                 const dataTypeName = currentTab === 'sources' ? 'sources' : 
                                    currentTab === 'taxes-fees' ? 'taxes and fees' : 
-                                   currentTab === 'rooms' ? 'rooms' : 'payment methods';
+                                   currentTab === 'rooms' ? 'rooms' : 
+                                   currentTab === 'payment-methods' ? 'payment methods' : 'items';
                 showMessage('error', `No data to export. Please load ${dataTypeName} first.`);
                 return;
             }

@@ -56,6 +56,7 @@ TAXES_FEES_URL = "https://api.cloudbeds.com/api/v1.3/getTaxesAndFees"
 ROOM_TYPES_URL = "https://api.cloudbeds.com/api/v1.3/getRoomTypes"
 ROOMS_URL = "https://api.cloudbeds.com/api/v1.3/getRooms"
 PAYMENT_METHODS_URL = "https://api.cloudbeds.com/api/v1.3/getPaymentMethods"
+ITEMS_URL = "https://api.cloudbeds.com/api/v1.3/getItems"
 
 def make_api_call(url, params, credentials):
     headers = {
@@ -65,6 +66,10 @@ def make_api_call(url, params, credentials):
     }
     
     try:
+        print(f"🚀 Making API call to: {url}")
+        print(f"🚀 Parameters: {params}")
+        print(f"🚀 Token present: {bool(credentials['access_token'])}")
+        
         response = requests.get(url, headers=headers, params=params, timeout=30)
         print(f"🔗 API call to {url} - Status: {response.status_code}")
         
@@ -77,10 +82,21 @@ def make_api_call(url, params, credentials):
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message', error_msg)
+                print(f"❌ API Error response: {error_data}")
             except:
+                print(f"❌ API Error - no JSON response: {response.text}")
                 pass
             return {'success': False, 'error': error_msg}
+    except requests.exceptions.Timeout:
+        print("❌ API call timed out")
+        return {'success': False, 'error': "Request timed out after 30 seconds"}
+    except requests.exceptions.ConnectionError:
+        print("❌ Connection error")
+        return {'success': False, 'error': "Connection error - check your internet connection"}
     except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
         return {'success': False, 'error': f"Connection error: {str(e)}"}
 
 # Data processing functions
@@ -249,6 +265,79 @@ def process_payment_methods_data(response):
     print(f"📊 Total processed payment items: {len(processed)}")
     print(f"📊 Processed items: {[item.get('data_type', 'Unknown') + ': ' + item.get('method_name', item.get('gateway_name', 'No name')) for item in processed]}")
     
+    return processed
+
+def process_items_data(response):
+    """Process items API response into flat table data"""
+    if not response or not response.get('success'):
+        print("❌ Items response is not successful")
+        return []
+    
+    data = response['data']
+    print(f"📊 Processing items data: {type(data)}")
+    
+    # Handle nested structure if needed
+    if isinstance(data, dict) and 'data' in data:
+        items = data['data']
+        print(f"📊 Found nested data structure with {len(items)} items")
+    elif isinstance(data, list):
+        items = data
+        print(f"📊 Found direct list with {len(items)} items")
+    else:
+        print("❌ Unexpected data structure")
+        return []
+    
+    processed = []
+    for i, item in enumerate(items):
+        if item is None:
+            print(f"⚠️ Skipping None item at index {i}")
+            continue
+        
+        try:
+            row = {}
+            
+            # Basic fields
+            row['itemID'] = safe_get(item, 'itemID')
+            row['itemType'] = safe_get(item, 'itemType')
+            row['sku'] = safe_get(item, 'sku')
+            row['itemCode'] = safe_get(item, 'itemCode')
+            row['name'] = safe_get(item, 'name')
+            row['categoryID'] = safe_get(item, 'categoryID')
+            row['categoryName'] = safe_get(item, 'categoryName')
+            row['description'] = safe_get(item, 'description')
+            row['price'] = safe_get(item, 'price')
+            row['stockInventory'] = safe_get(item, 'stockInventory')
+            row['totalTaxes'] = safe_get(item, 'totalTaxes')
+            row['totalFees'] = safe_get(item, 'totalFees')
+            row['priceWithoutFeesAndTaxes'] = safe_get(item, 'priceWithoutFeesAndTaxes')
+            row['grandTotal'] = safe_get(item, 'grandTotal')
+            
+            # Process taxes
+            taxes = item.get('taxes', [])
+            if isinstance(taxes, list) and taxes:
+                for idx, tax in enumerate(taxes):
+                    if tax is not None and isinstance(tax, dict):
+                        num = idx + 1
+                        row[f'tax_{num}_name'] = safe_get(tax, 'taxName')
+                        row[f'tax_{num}_value'] = safe_get(tax, 'taxValue')
+            
+            # Process fees
+            fees = item.get('fees', [])
+            if isinstance(fees, list) and fees:
+                for idx, fee in enumerate(fees):
+                    if fee is not None and isinstance(fee, dict):
+                        num = idx + 1
+                        row[f'fee_{num}_name'] = safe_get(fee, 'feeName', safe_get(fee, 'name'))
+                        row[f'fee_{num}_value'] = safe_get(fee, 'feeValue', safe_get(fee, 'value'))
+            
+            processed.append(row)
+            print(f"✅ Processed item {i+1}: {row.get('name', 'Unknown')}")
+            
+        except Exception as e:
+            print(f"❌ Error processing item {i}: {e}")
+            continue
+    
+    print(f"📊 Total processed items: {len(processed)}")
     return processed
 
 def process_taxes_fees_data(response):
@@ -468,32 +557,80 @@ def get_payment_methods():
         print(f"❌ Error in get_payment_methods: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/items')
+def get_items():
+    try:
+        credentials = get_credentials()
+        
+        if not credentials['access_token']:
+            return jsonify({'success': False, 'error': 'Access token not configured'})
+        
+        print(f"🚀 Fetching items for property {credentials['property_id']}")
+        
+        response = make_api_call(ITEMS_URL, {'propertyID': credentials['property_id']}, credentials)
+        
+        if not response['success']:
+            return jsonify({'success': False, 'error': response['error']})
+        
+        processed_data = process_items_data(response)
+        all_columns = get_all_columns(processed_data)
+        normalized_data = normalize_data(processed_data, all_columns)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'items': normalized_data,
+                'columns': all_columns,
+                'count': len(normalized_data)
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in get_items: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/get-settings')
 def get_settings():
     return jsonify({'success': True, 'data': load_config()})
 
 @app.route('/api/test-connection')
 def test_connection():
-    form_access_token = request.args.get('access_token')
-    form_property_id = request.args.get('property_id')
-    
-    if form_access_token and form_property_id:
-        credentials = {
-            'access_token': form_access_token.strip(),
-            'property_id': form_property_id.strip()
-        }
-    else:
-        credentials = get_credentials()
-    
-    if not credentials['access_token']:
-        return jsonify({'success': False, 'error': 'Please configure your access token first.'})
-    
-    result = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
-    
-    if result['success']:
-        return jsonify({'success': True, 'message': 'Connection successful!'})
-    else:
-        return jsonify({'success': False, 'error': result['error']})
+    try:
+        print("🔍 Test connection endpoint called")
+        
+        form_access_token = request.args.get('access_token')
+        form_property_id = request.args.get('property_id')
+        
+        print(f"🔍 Form access token present: {bool(form_access_token)}")
+        print(f"🔍 Form property ID: {form_property_id}")
+        
+        if form_access_token and form_property_id:
+            credentials = {
+                'access_token': form_access_token.strip(),
+                'property_id': form_property_id.strip()
+            }
+        else:
+            credentials = get_credentials()
+            print(f"🔍 Using saved credentials - token present: {bool(credentials['access_token'])}")
+        
+        if not credentials['access_token']:
+            return jsonify({'success': False, 'error': 'Please configure your access token first.'})
+        
+        print(f"🔍 Testing connection with property ID: {credentials['property_id']}")
+        result = make_api_call(SOURCES_URL, {'propertyID': credentials['property_id']}, credentials)
+        
+        print(f"🔍 Test connection result: {result}")
+        
+        if result['success']:
+            return jsonify({'success': True, 'message': 'Connection successful!'})
+        else:
+            return jsonify({'success': False, 'error': result['error']})
+            
+    except Exception as e:
+        print(f"❌ Error in test_connection: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'})
 
 @app.route('/api/sources')
 def get_sources():
@@ -631,6 +768,13 @@ def export_csv():
                 return f"Error: {response['error']}", 500
             data = process_payment_methods_data(response)
             filename = f"cloudbeds_payment_methods_{credentials['property_id']}"
+            
+        elif data_type == 'items':
+            response = make_api_call(ITEMS_URL, {'propertyID': credentials['property_id']}, credentials)
+            if not response['success']:
+                return f"Error: {response['error']}", 500
+            data = process_items_data(response)
+            filename = f"cloudbeds_items_{credentials['property_id']}"
             
         elif data_type == 'rooms':
             rt_response = make_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
