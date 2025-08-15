@@ -330,7 +330,29 @@
                         <button onclick="testConnection()" id="testBtn" class="btn-warning">Test Connection</button>
                     </div>
                 </div>
+                <div style="text-align: right; margin-top: 10px;">
+                    <a href="#" onclick="showBulkSourcesDialog(); return false;" style="font-size: 12px; color: #666; text-decoration: none;">+ Bulk load multiple properties</a>
+                </div>
                 <div id="connectionStatus" class="connection-status hidden"></div>
+            </div>
+
+            <!-- Bulk Sources Dialog -->
+            <div id="bulkSourcesDialog" class="bulk-dialog hidden">
+                <div class="bulk-dialog-content">
+                    <h3>🏢 Bulk Property IDs - Sources</h3>
+                    <p>Enter property IDs separated by commas, spaces, or new lines:</p>
+                    <textarea id="bulkSourcesIds" placeholder="6000, 6001, 6002&#10;6003&#10;6004, 6005" rows="10" cols="50"></textarea>
+                    <div class="bulk-dialog-buttons">
+                        <button onclick="loadBulkSources()" class="btn-success">Load All Properties</button>
+                        <button onclick="hideBulkSourcesDialog()" class="btn-secondary">Cancel</button>
+                    </div>
+                    <div id="bulkSourcesProgress" class="hidden">
+                        <div class="progress-bar">
+                            <div id="sourcesProgressFill" class="progress-fill"></div>
+                        </div>
+                        <div id="sourcesProgressText">Loading property 1 of 100...</div>
+                    </div>
+                </div>
             </div>
 
             <div id="loading" class="loading hidden">
@@ -1386,10 +1408,11 @@
             // Build the export URL
             let exportUrl = `/export/csv?type=${dataType}`;
             
-            // For taxes-fees, check if we have bulk data with multiple property IDs
-            if (dataType === 'taxes-fees' && currentData.items && currentData.items.length > 0) {
+            // For sources or taxes-fees, check if we have bulk data with multiple property IDs
+            if ((dataType === 'taxes-fees' || dataType === 'sources') && currentData.items || currentData.sources) {
+                const dataItems = currentData.items || currentData.sources || [];
                 // Check if we have multiple unique property IDs
-                const propertyIds = [...new Set(currentData.items.map(item => item.propertyID).filter(id => id))];
+                const propertyIds = [...new Set(dataItems.map(item => item.propertyID).filter(id => id))];
                 if (propertyIds.length > 1) {
                     // This is bulk data, pass the property IDs to the backend
                     exportUrl += `&bulkPropertyIds=${propertyIds.join(',')}`;
@@ -1407,6 +1430,153 @@
             document.body.removeChild(link);
             
             showMessage('success', 'CSV export started! Check your downloads folder.');
+        }
+
+        function showBulkSourcesDialog() {
+            document.getElementById('bulkSourcesDialog').classList.remove('hidden');
+        }
+
+        function hideBulkSourcesDialog() {
+            document.getElementById('bulkSourcesDialog').classList.add('hidden');
+            document.getElementById('bulkSourcesProgress').classList.add('hidden');
+            // Reset the form
+            document.getElementById('bulkSourcesIds').value = '';
+            document.getElementById('sourcesProgressFill').style.width = '0%';
+            document.getElementById('sourcesProgressText').textContent = '';
+        }
+
+        async function loadBulkSources() {
+            const accessToken = document.getElementById('accessToken').value.trim();
+            const bulkText = document.getElementById('bulkSourcesIds').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your access token first');
+                return;
+            }
+            
+            if (!bulkText) {
+                showMessage('error', 'Please enter property IDs');
+                return;
+            }
+            
+            // Parse property IDs from text (support commas, spaces, newlines)
+            const propertyIds = bulkText
+                .split(/[,\s\n\r]+/)
+                .map(id => id.trim())
+                .filter(id => id && /^\d+$/.test(id)); // Only numeric IDs
+            
+            if (propertyIds.length === 0) {
+                showMessage('error', 'No valid property IDs found');
+                return;
+            }
+            
+            console.log(`Loading sources for ${propertyIds.length} properties:`, propertyIds);
+            
+            // Show progress
+            document.getElementById('bulkSourcesProgress').classList.remove('hidden');
+            const progressFill = document.getElementById('sourcesProgressFill');
+            const progressText = document.getElementById('sourcesProgressText');
+            
+            // Save settings first
+            try {
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyIds[0] // Use first property ID as default
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`);
+                    hideBulkSourcesDialog();
+                    return;
+                }
+            } catch (error) {
+                showMessage('error', `Error saving settings: ${error.message}`);
+                hideBulkSourcesDialog();
+                return;
+            }
+            
+            // Load data for all properties
+            let allData = [];
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (let i = 0; i < propertyIds.length; i++) {
+                const propertyId = propertyIds[i];
+                const progress = ((i + 1) / propertyIds.length) * 100;
+                
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `Loading property ${i + 1} of ${propertyIds.length} (ID: ${propertyId})...`;
+                
+                try {
+                    const response = await fetch(`/api/sources?propertyID=${propertyId}`);
+                    const result = await response.json();
+                    
+                    if (result.success && result.data && result.data.sources) {
+                        // Add property ID to each item
+                        const sourcesWithPropertyId = result.data.sources.map(item => ({
+                            propertyID: propertyId,
+                            ...item
+                        }));
+                        allData.push(...sourcesWithPropertyId);
+                        successCount++;
+                        console.log(`✅ Loaded ${result.data.sources.length} sources for property ${propertyId}`);
+                    } else {
+                        console.log(`❌ Failed to load property ${propertyId}: ${result.error || 'No data'}`);
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.log(`❌ Error loading property ${propertyId}: ${error.message}`);
+                    errorCount++;
+                }
+                
+                // Small delay to prevent overwhelming the API
+                if (i < propertyIds.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+            
+            hideBulkSourcesDialog();
+            
+            if (allData.length > 0) {
+                // Sort by property ID
+                allData.sort((a, b) => {
+                    const propA = parseInt(a.propertyID) || 0;
+                    const propB = parseInt(b.propertyID) || 0;
+                    return propA - propB;
+                });
+                
+                // Get all columns and ensure propertyID is first
+                const allColumns = ['propertyID', ...new Set(allData.flatMap(item => Object.keys(item)))];
+                const uniqueColumns = [...new Set(allColumns)];
+                
+                // Normalize data
+                const normalizedData = allData.map(item => {
+                    const normalized = {};
+                    uniqueColumns.forEach(col => {
+                        normalized[col] = item[col] || '';
+                    });
+                    return normalized;
+                });
+                
+                sourcesData = {
+                    sources: normalizedData,
+                    columns: uniqueColumns,
+                    count: normalizedData.length
+                };
+                
+                createTable(sourcesData, 'sources');
+                showMessage('success', `Successfully loaded ${allData.length} sources from ${successCount} properties! (${errorCount} errors)`);
+                showConnectionStatus('success', '✅ Bulk load completed');
+            } else {
+                showMessage('error', `No data loaded. ${errorCount} properties failed to load.`);
+            }
         }
     </script>
 </body>
