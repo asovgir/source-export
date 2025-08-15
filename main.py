@@ -481,8 +481,8 @@ def get_all_columns(data_list):
         if isinstance(row, dict):
             all_cols.update(row.keys())
     
-    # Sort with important columns first
-    priority_cols = ['data_type', 'propertyID', 'sourceID', 'sourceName', 'roomtype_roomTypeID', 'roomtype_roomTypeName', 'room_roomID', 'room_roomName']
+    # Sort with important columns first - propertyID should always be first
+    priority_cols = ['propertyID', 'data_type', 'sourceID', 'sourceName', 'roomtype_roomTypeID', 'roomtype_roomTypeName', 'room_roomID', 'room_roomName']
     sorted_cols = []
     
     for col in priority_cols:
@@ -672,14 +672,22 @@ def get_taxes_fees():
         if not credentials['access_token']:
             return jsonify({'success': False, 'error': 'Access token not configured'})
         
-        print(f"🚀 Fetching taxes/fees for property {credentials['property_id']}")
+        # Support custom property ID from query parameter for bulk loading
+        property_id = request.args.get('propertyID', credentials['property_id'])
         
-        response = make_api_call(TAXES_FEES_URL, {'propertyID': credentials['property_id']}, credentials)
+        print(f"🚀 Fetching taxes/fees for property {property_id}")
+        
+        response = make_api_call(TAXES_FEES_URL, {'propertyID': property_id}, credentials)
         
         if not response['success']:
             return jsonify({'success': False, 'error': response['error']})
         
         processed_data = process_taxes_fees_data(response)
+        
+        # Add propertyID to each row since the API doesn't include it
+        for row in processed_data:
+            row['propertyID'] = property_id
+        
         all_columns = get_all_columns(processed_data)
         normalized_data = normalize_data(processed_data, all_columns)
         
@@ -756,10 +764,39 @@ def export_csv():
             filename = f"cloudbeds_sources_{credentials['property_id']}"
             
         elif data_type == 'taxes-fees':
-            response = make_api_call(TAXES_FEES_URL, {'propertyID': credentials['property_id']}, credentials)
-            if not response['success']:
-                return f"Error: {response['error']}", 500
-            data = process_taxes_fees_data(response)
+            # For taxes-fees, we need to handle both single property and bulk property exports
+            # Check if we have bulk data in the frontend by looking for propertyID in the request
+            bulk_property_ids = request.args.get('bulkPropertyIds', '')
+            
+            if bulk_property_ids:
+                # Handle bulk export - load data for multiple properties
+                property_ids = bulk_property_ids.split(',')
+                all_data = []
+                
+                for prop_id in property_ids:
+                    prop_id = prop_id.strip()
+                    if prop_id:
+                        response = make_api_call(TAXES_FEES_URL, {'propertyID': prop_id}, credentials)
+                        if response['success']:
+                            prop_data = process_taxes_fees_data(response)
+                            # Add propertyID to each row
+                            for row in prop_data:
+                                row['propertyID'] = prop_id
+                            all_data.extend(prop_data)
+                
+                # Sort by propertyID
+                all_data.sort(key=lambda x: int(x.get('propertyID', 0)))
+                data = all_data
+            else:
+                # Single property export
+                response = make_api_call(TAXES_FEES_URL, {'propertyID': credentials['property_id']}, credentials)
+                if not response['success']:
+                    return f"Error: {response['error']}", 500
+                data = process_taxes_fees_data(response)
+                # Add propertyID to each row for consistency
+                for row in data:
+                    row['propertyID'] = credentials['property_id']
+            
             filename = f"cloudbeds_taxes_fees_{credentials['property_id']}"
             
         elif data_type == 'payment-methods':
