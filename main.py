@@ -959,13 +959,16 @@ def export_csv():
             data = process_items_data(response)
             filename = f"cloudbeds_items_{credentials['property_id']}"
             
-        elif data_type == 'rooms':
-            rt_response = make_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
-            r_response = make_api_call(ROOMS_URL, {'propertyID': credentials['property_id']}, credentials)
+       elif data_type == 'rooms':
+            # Use paginated API calls for both room types and rooms
+            rt_response = make_paginated_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
+            r_response = make_paginated_api_call(ROOMS_URL, {'propertyID': credentials['property_id']}, credentials)
+            
             if not rt_response['success']:
                 return f"Error: {rt_response['error']}", 500
             if not r_response['success']:
                 return f"Error: {r_response['error']}", 500
+                
             data = process_rooms_data(rt_response, r_response)
             filename = f"cloudbeds_rooms_{credentials['property_id']}"
             
