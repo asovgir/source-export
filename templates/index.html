@@ -286,7 +286,7 @@
             width: 0%;
             transition: width 0.3s ease;
         }
-        #progressText {
+        #progressText, #sourcesProgressText {
             text-align: center;
             font-weight: bold;
             color: #666;
@@ -313,13 +313,12 @@
 
         <!-- Sources Tab Content -->
         <div id="sources-content" class="tab-content active">
-            <!-- Settings Section -->
             <div class="settings-section">
                 <h3>⚙️ API Settings</h3>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label for="accessToken">Access Token:</label>
-                        <input type="password" id="accessToken" placeholder="Enter your Cloudbeds access token">
+                        <label for="accessToken">API Key:</label>
+                        <input type="password" id="accessToken" placeholder="Enter your Cloudbeds API key">
                     </div>
                     <div class="form-group">
                         <label for="propertyId">Property ID:</label>
@@ -336,12 +335,11 @@
                 <div id="connectionStatus" class="connection-status hidden"></div>
             </div>
 
-            <!-- Bulk Sources Dialog -->
             <div id="bulkSourcesDialog" class="bulk-dialog hidden">
                 <div class="bulk-dialog-content">
                     <h3>🏢 Bulk Property IDs - Sources</h3>
                     <p>Enter property IDs separated by commas, spaces, or new lines:</p>
-                    <textarea id="bulkSourcesIds" placeholder="6000, 6001, 6002&#10;6003&#10;6004, 6005" rows="10" cols="50"></textarea>
+                    <textarea id="bulkSourcesIds" placeholder="6000, 6001, 6002&#10;6003&#10;6004, 6005" rows="10"></textarea>
                     <div class="bulk-dialog-buttons">
                         <button onclick="loadBulkSources()" class="btn-success">Load All Properties</button>
                         <button onclick="hideBulkSourcesDialog()" class="btn-secondary">Cancel</button>
@@ -362,7 +360,6 @@
             <div id="error" class="error hidden"></div>
             <div id="success" class="success hidden"></div>
             <div id="info" class="info hidden"></div>
-
             <div id="stats" class="stats hidden"></div>
 
             <div id="tableContainer" class="table-container hidden">
@@ -373,19 +370,18 @@
             </div>
 
             <div id="noData" class="info hidden">
-                <p>📋 No sources data loaded. Configure your access token above and click "Load Sources" to fetch data.</p>
+                <p>📋 No sources data loaded. Configure your API key above and click "Load Sources" to fetch data.</p>
             </div>
         </div>
 
         <!-- Taxes and Fees Tab Content -->
         <div id="taxes-fees-content" class="tab-content">
-            <!-- Settings Section (shared) -->
             <div class="settings-section">
                 <h3>⚙️ API Settings</h3>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label for="accessToken2">Access Token:</label>
-                        <input type="password" id="accessToken2" placeholder="Enter your Cloudbeds access token">
+                        <label for="accessToken2">API Key:</label>
+                        <input type="password" id="accessToken2" placeholder="Enter your Cloudbeds API key">
                     </div>
                     <div class="form-group">
                         <label for="propertyId2">Property ID:</label>
@@ -402,12 +398,11 @@
                 <div id="connectionStatus2" class="connection-status hidden"></div>
             </div>
 
-            <!-- Bulk Property Dialog -->
             <div id="bulkPropertyDialog" class="bulk-dialog hidden">
                 <div class="bulk-dialog-content">
                     <h3>🏢 Bulk Property IDs</h3>
                     <p>Enter property IDs separated by commas, spaces, or new lines:</p>
-                    <textarea id="bulkPropertyIds" placeholder="6000, 6001, 6002&#10;6003&#10;6004, 6005" rows="10" cols="50"></textarea>
+                    <textarea id="bulkPropertyIds" placeholder="6000, 6001, 6002&#10;6003&#10;6004, 6005" rows="10"></textarea>
                     <div class="bulk-dialog-buttons">
                         <button onclick="loadBulkTaxesFees()" class="btn-success">Load All Properties</button>
                         <button onclick="hideBulkPropertyDialog()" class="btn-secondary">Cancel</button>
@@ -428,7 +423,6 @@
             <div id="error2" class="error hidden"></div>
             <div id="success2" class="success hidden"></div>
             <div id="info2" class="info hidden"></div>
-
             <div id="stats2" class="stats hidden"></div>
 
             <div id="tableContainer2" class="table-container hidden">
@@ -439,19 +433,18 @@
             </div>
 
             <div id="noData2" class="info hidden">
-                <p>📋 No taxes and fees data loaded. Configure your access token above and click "Load Taxes & Fees" to fetch data.</p>
+                <p>📋 No taxes and fees data loaded. Configure your API key above and click "Load Taxes & Fees" to fetch data.</p>
             </div>
         </div>
 
         <!-- Rooms Tab Content -->
         <div id="rooms-content" class="tab-content">
-            <!-- Settings Section (shared) -->
             <div class="settings-section">
                 <h3>⚙️ API Settings</h3>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label for="accessToken3">Access Token:</label>
-                        <input type="password" id="accessToken3" placeholder="Enter your Cloudbeds access token">
+                        <label for="accessToken3">API Key:</label>
+                        <input type="password" id="accessToken3" placeholder="Enter your Cloudbeds API key">
                     </div>
                     <div class="form-group">
                         <label for="propertyId3">Property ID:</label>
@@ -472,10 +465,8 @@
             <div id="error3" class="error hidden"></div>
             <div id="success3" class="success hidden"></div>
             <div id="info3" class="info hidden"></div>
-
             <div id="stats3" class="stats hidden"></div>
 
-            <!-- Rooms-specific controls -->
             <div id="roomsControls" class="hidden" style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
                 <button onclick="toggleAllRoomDetails()" id="toggleAllBtn" class="btn-warning" style="margin-right: 10px;">▼ Hide All Room Details</button>
                 <span style="color: #666;">Toggle to show/hide individual room details under each room type</span>
@@ -489,19 +480,18 @@
             </div>
 
             <div id="noData3" class="info hidden">
-                <p>📋 No rooms data loaded. Configure your access token above and click "Load Rooms" to fetch data.</p>
+                <p>📋 No rooms data loaded. Configure your API key above and click "Load Rooms" to fetch data.</p>
             </div>
         </div>
 
         <!-- Payment Methods Tab Content -->
         <div id="payment-methods-content" class="tab-content">
-            <!-- Settings Section (shared) -->
             <div class="settings-section">
                 <h3>⚙️ API Settings</h3>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label for="accessToken4">Access Token:</label>
-                        <input type="password" id="accessToken4" placeholder="Enter your Cloudbeds access token">
+                        <label for="accessToken4">API Key:</label>
+                        <input type="password" id="accessToken4" placeholder="Enter your Cloudbeds API key">
                     </div>
                     <div class="form-group">
                         <label for="propertyId4">Property ID:</label>
@@ -522,7 +512,6 @@
             <div id="error4" class="error hidden"></div>
             <div id="success4" class="success hidden"></div>
             <div id="info4" class="info hidden"></div>
-
             <div id="stats4" class="stats hidden"></div>
 
             <div id="tableContainer4" class="table-container hidden">
@@ -533,19 +522,18 @@
             </div>
 
             <div id="noData4" class="info hidden">
-                <p>📋 No payment methods data loaded. Configure your access token above and click "Load Payment Types" to fetch data.</p>
+                <p>📋 No payment methods data loaded. Configure your API key above and click "Load Payment Types" to fetch data.</p>
             </div>
         </div>
 
         <!-- Items Tab Content -->
         <div id="items-content" class="tab-content">
-            <!-- Settings Section (shared) -->
             <div class="settings-section">
                 <h3>⚙️ API Settings</h3>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label for="accessToken5">Access Token:</label>
-                        <input type="password" id="accessToken5" placeholder="Enter your Cloudbeds access token">
+                        <label for="accessToken5">API Key:</label>
+                        <input type="password" id="accessToken5" placeholder="Enter your Cloudbeds API key">
                     </div>
                     <div class="form-group">
                         <label for="propertyId5">Property ID:</label>
@@ -566,7 +554,6 @@
             <div id="error5" class="error hidden"></div>
             <div id="success5" class="success hidden"></div>
             <div id="info5" class="info hidden"></div>
-
             <div id="stats5" class="stats hidden"></div>
 
             <div id="tableContainer5" class="table-container hidden">
@@ -577,7 +564,7 @@
             </div>
 
             <div id="noData5" class="info hidden">
-                <p>📋 No items data loaded. Configure your access token above and click "Load Items" to fetch data.</p>
+                <p>📋 No items data loaded. Configure your API key above and click "Load Items" to fetch data.</p>
             </div>
         </div>
     </div>
@@ -590,7 +577,6 @@
         let itemsData = null;
         let currentTab = 'sources';
 
-        // Load saved settings on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadSettings();
         });
@@ -598,15 +584,12 @@
         function switchTab(tabName) {
             currentTab = tabName;
             
-            // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
             
-            // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             document.getElementById(tabName + '-content').classList.add('active');
             
-            // Update load button text
             const loadBtn = currentTab === 'sources' ? document.getElementById('loadBtn') : 
                           currentTab === 'taxes-fees' ? document.getElementById('loadBtn2') :
                           currentTab === 'rooms' ? document.getElementById('loadBtn3') :
@@ -617,7 +600,6 @@
                                 currentTab === 'rooms' ? 'Load Rooms' : 
                                 currentTab === 'payment-methods' ? 'Load Payment Types' : 'Load Items';
             
-            // Sync settings between tabs
             syncSettings();
         }
 
@@ -647,7 +629,6 @@
             const tokenValue = document.getElementById(currentTokenId).value;
             const propertyValue = document.getElementById(currentPropertyId).value;
             
-            // Sync all other fields
             allTokens.forEach(id => {
                 if (id !== currentTokenId) {
                     document.getElementById(id).value = tokenValue;
@@ -678,7 +659,6 @@
                     document.getElementById('accessToken5').value = result.data.access_token || '';
                     document.getElementById('propertyId5').value = result.data.property_id || '6000';
                     
-                    // If settings exist, show success status
                     if (result.data.access_token) {
                         showConnectionStatus('success', '✅ Settings loaded successfully');
                     }
@@ -689,7 +669,7 @@
         }
 
         async function loadData() {
-            syncSettings(); // Ensure settings are in sync
+            syncSettings();
             
             if (currentTab === 'sources') {
                 await loadSources();
@@ -705,12 +685,11 @@
         }
 
         async function loadSources() {
-            // Save settings and load sources
             const accessToken = document.getElementById('accessToken').value.trim();
             const propertyId = document.getElementById('propertyId').value.trim();
             
             if (!accessToken) {
-                showMessage('error', 'Please enter your access token');
+                showMessage('error', 'Please enter your API key');
                 return;
             }
             
@@ -722,7 +701,6 @@
             try {
                 setLoading(true);
                 
-                // Save settings first
                 const saveResponse = await fetch('/api/save-settings', {
                     method: 'POST',
                     headers: {
@@ -741,7 +719,6 @@
                     return;
                 }
                 
-                // Then load sources
                 const response = await fetch('/api/sources');
                 const result = await response.json();
                 
@@ -764,12 +741,11 @@
         }
 
         async function loadTaxesFees() {
-            // Save settings and load taxes/fees
             const accessToken = document.getElementById('accessToken2').value.trim();
             const propertyId = document.getElementById('propertyId2').value.trim();
             
             if (!accessToken) {
-                showMessage('error', 'Please enter your access token', '2');
+                showMessage('error', 'Please enter your API key', '2');
                 return;
             }
             
@@ -781,7 +757,6 @@
             try {
                 setLoading(true, '2');
                 
-                // Save settings first
                 const saveResponse = await fetch('/api/save-settings', {
                     method: 'POST',
                     headers: {
@@ -800,7 +775,6 @@
                     return;
                 }
                 
-                // Then load taxes and fees
                 const response = await fetch('/api/taxes-fees');
                 const result = await response.json();
                 
@@ -823,12 +797,11 @@
         }
 
         async function loadRooms() {
-            // Save settings and load rooms
             const accessToken = document.getElementById('accessToken3').value.trim();
             const propertyId = document.getElementById('propertyId3').value.trim();
             
             if (!accessToken) {
-                showMessage('error', 'Please enter your access token', '3');
+                showMessage('error', 'Please enter your API key', '3');
                 return;
             }
             
@@ -840,7 +813,6 @@
             try {
                 setLoading(true, '3');
                 
-                // Save settings first
                 const saveResponse = await fetch('/api/save-settings', {
                     method: 'POST',
                     headers: {
@@ -859,7 +831,6 @@
                     return;
                 }
                 
-                // Then load rooms
                 const response = await fetch('/api/rooms');
                 const result = await response.json();
                 
@@ -882,12 +853,11 @@
         }
 
         async function loadPaymentMethods() {
-            // Save settings and load payment methods
             const accessToken = document.getElementById('accessToken4').value.trim();
             const propertyId = document.getElementById('propertyId4').value.trim();
             
             if (!accessToken) {
-                showMessage('error', 'Please enter your access token', '4');
+                showMessage('error', 'Please enter your API key', '4');
                 return;
             }
             
@@ -899,7 +869,6 @@
             try {
                 setLoading(true, '4');
                 
-                // Save settings first
                 const saveResponse = await fetch('/api/save-settings', {
                     method: 'POST',
                     headers: {
@@ -918,7 +887,6 @@
                     return;
                 }
                 
-                // Then load payment methods
                 const response = await fetch('/api/payment-methods');
                 const result = await response.json();
                 
@@ -941,12 +909,11 @@
         }
 
         async function loadItems() {
-            // Save settings and load items
             const accessToken = document.getElementById('accessToken5').value.trim();
             const propertyId = document.getElementById('propertyId5').value.trim();
             
             if (!accessToken) {
-                showMessage('error', 'Please enter your access token', '5');
+                showMessage('error', 'Please enter your API key', '5');
                 return;
             }
             
@@ -958,7 +925,6 @@
             try {
                 setLoading(true, '5');
                 
-                // Save settings first
                 const saveResponse = await fetch('/api/save-settings', {
                     method: 'POST',
                     headers: {
@@ -977,7 +943,6 @@
                     return;
                 }
                 
-                // Then load items
                 const response = await fetch('/api/items');
                 const result = await response.json();
                 
@@ -1006,7 +971,6 @@
         function hideBulkPropertyDialog() {
             document.getElementById('bulkPropertyDialog').classList.add('hidden');
             document.getElementById('bulkProgress').classList.add('hidden');
-            // Reset the form
             document.getElementById('bulkPropertyIds').value = '';
             document.getElementById('progressFill').style.width = '0%';
             document.getElementById('progressText').textContent = '';
@@ -1017,7 +981,7 @@
             const bulkText = document.getElementById('bulkPropertyIds').value.trim();
             
             if (!accessToken) {
-                showMessage('error', 'Please enter your access token first', '2');
+                showMessage('error', 'Please enter your API key first', '2');
                 return;
             }
             
@@ -1026,25 +990,20 @@
                 return;
             }
             
-            // Parse property IDs from text (support commas, spaces, newlines)
             const propertyIds = bulkText
                 .split(/[,\s\n\r]+/)
                 .map(id => id.trim())
-                .filter(id => id && /^\d+$/.test(id)); // Only numeric IDs
+                .filter(id => id && /^\d+$/.test(id));
             
             if (propertyIds.length === 0) {
                 showMessage('error', 'No valid property IDs found', '2');
                 return;
             }
             
-            console.log(`Loading taxes/fees for ${propertyIds.length} properties:`, propertyIds);
-            
-            // Show progress
             document.getElementById('bulkProgress').classList.remove('hidden');
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
             
-            // Save settings first
             try {
                 const saveResponse = await fetch('/api/save-settings', {
                     method: 'POST',
@@ -1053,7 +1012,7 @@
                     },
                     body: JSON.stringify({
                         access_token: accessToken,
-                        property_id: propertyIds[0] // Use first property ID as default
+                        property_id: propertyIds[0]
                     })
                 });
                 
@@ -1069,7 +1028,6 @@
                 return;
             }
             
-            // Load data for all properties
             let allData = [];
             let successCount = 0;
             let errorCount = 0;
@@ -1086,20 +1044,15 @@
                     const result = await response.json();
                     
                     if (result.success && result.data && result.data.items) {
-                        // The backend should already have the correct propertyID, just add the data
                         allData.push(...result.data.items);
                         successCount++;
-                        console.log(`✅ Loaded ${result.data.items.length} items for property ${propertyId}`);
                     } else {
-                        console.log(`❌ Failed to load property ${propertyId}: ${result.error || 'No data'}`);
                         errorCount++;
                     }
                 } catch (error) {
-                    console.log(`❌ Error loading property ${propertyId}: ${error.message}`);
                     errorCount++;
                 }
                 
-                // Small delay to prevent overwhelming the API
                 if (i < propertyIds.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
@@ -1108,18 +1061,15 @@
             hideBulkPropertyDialog();
             
             if (allData.length > 0) {
-                // Sort by property ID
                 allData.sort((a, b) => {
                     const propA = parseInt(a.propertyID) || 0;
                     const propB = parseInt(b.propertyID) || 0;
                     return propA - propB;
                 });
                 
-                // Get all columns and ensure propertyID is first
                 const allColumns = ['propertyID', ...new Set(allData.flatMap(item => Object.keys(item)))];
                 const uniqueColumns = [...new Set(allColumns)];
                 
-                // Normalize data
                 const normalizedData = allData.map(item => {
                     const normalized = {};
                     uniqueColumns.forEach(col => {
@@ -1142,13 +1092,140 @@
             }
         }
 
+        function showBulkSourcesDialog() {
+            document.getElementById('bulkSourcesDialog').classList.remove('hidden');
+        }
+
+        function hideBulkSourcesDialog() {
+            document.getElementById('bulkSourcesDialog').classList.add('hidden');
+            document.getElementById('bulkSourcesProgress').classList.add('hidden');
+            document.getElementById('bulkSourcesIds').value = '';
+            document.getElementById('sourcesProgressFill').style.width = '0%';
+            document.getElementById('sourcesProgressText').textContent = '';
+        }
+
+        async function loadBulkSources() {
+            const accessToken = document.getElementById('accessToken').value.trim();
+            const bulkText = document.getElementById('bulkSourcesIds').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your API key first');
+                return;
+            }
+            
+            if (!bulkText) {
+                showMessage('error', 'Please enter property IDs');
+                return;
+            }
+            
+            const propertyIds = bulkText
+                .split(/[,\s\n\r]+/)
+                .map(id => id.trim())
+                .filter(id => id && /^\d+$/.test(id));
+            
+            if (propertyIds.length === 0) {
+                showMessage('error', 'No valid property IDs found');
+                return;
+            }
+            
+            document.getElementById('bulkSourcesProgress').classList.remove('hidden');
+            const progressFill = document.getElementById('sourcesProgressFill');
+            const progressText = document.getElementById('sourcesProgressText');
+            
+            try {
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyIds[0]
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`);
+                    hideBulkSourcesDialog();
+                    return;
+                }
+            } catch (error) {
+                showMessage('error', `Error saving settings: ${error.message}`);
+                hideBulkSourcesDialog();
+                return;
+            }
+            
+            let allData = [];
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (let i = 0; i < propertyIds.length; i++) {
+                const propertyId = propertyIds[i];
+                const progress = ((i + 1) / propertyIds.length) * 100;
+                
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `Loading property ${i + 1} of ${propertyIds.length} (ID: ${propertyId})...`;
+                
+                try {
+                    const response = await fetch(`/api/sources?propertyID=${propertyId}`);
+                    const result = await response.json();
+                    
+                    if (result.success && result.data && result.data.sources) {
+                        allData.push(...result.data.sources);
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    errorCount++;
+                }
+                
+                if (i < propertyIds.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+            
+            hideBulkSourcesDialog();
+            
+            if (allData.length > 0) {
+                allData.sort((a, b) => {
+                    const propA = parseInt(a.propertyID) || 0;
+                    const propB = parseInt(b.propertyID) || 0;
+                    return propA - propB;
+                });
+                
+                const allColumns = ['propertyID', ...new Set(allData.flatMap(item => Object.keys(item)))];
+                const uniqueColumns = [...new Set(allColumns)];
+                
+                const normalizedData = allData.map(item => {
+                    const normalized = {};
+                    uniqueColumns.forEach(col => {
+                        normalized[col] = item[col] || '';
+                    });
+                    return normalized;
+                });
+                
+                sourcesData = {
+                    sources: normalizedData,
+                    columns: uniqueColumns,
+                    count: normalizedData.length
+                };
+                
+                createTable(sourcesData, 'sources');
+                showMessage('success', `Successfully loaded ${allData.length} sources from ${successCount} properties! (${errorCount} errors)`);
+                showConnectionStatus('success', '✅ Bulk load completed');
+            } else {
+                showMessage('error', `No data loaded. ${errorCount} properties failed to load.`);
+            }
+        }
+
         function showConnectionStatus(type, message, suffix = '') {
             const statusEl = document.getElementById('connectionStatus' + suffix);
             statusEl.className = `connection-status status-${type}`;
             statusEl.textContent = message;
             statusEl.classList.remove('hidden');
             
-            // Auto-hide success messages after 5 seconds
             if (type === 'success') {
                 setTimeout(() => {
                     statusEl.classList.add('hidden');
@@ -1157,17 +1234,14 @@
         }
 
         function showMessage(type, message, suffix = '') {
-            // Hide all messages first
             document.getElementById('error' + suffix).classList.add('hidden');
             document.getElementById('success' + suffix).classList.add('hidden');
             document.getElementById('info' + suffix).classList.add('hidden');
             
-            // Show the appropriate message
             const element = document.getElementById(type + suffix);
             element.textContent = message;
             element.classList.remove('hidden');
             
-            // Auto-hide after 5 seconds for success/info messages
             if (type === 'success' || type === 'info') {
                 setTimeout(() => {
                     element.classList.add('hidden');
@@ -1193,13 +1267,20 @@
             }
         }
 
-        function updateStats(count, suffix = '') {
+        function updateStats(count, suffix = '', roomTypesCount = 0, roomsCount = 0) {
             const statsEl = document.getElementById('stats' + suffix);
-            const dataType = currentTab === 'sources' ? 'Sources' : 
-                           currentTab === 'taxes-fees' ? 'Taxes & Fees Items' : 
-                           currentTab === 'rooms' ? 'Room-related Items' : 
-                           currentTab === 'payment-methods' ? 'Payment Items' : 'Items';
-            statsEl.textContent = `📊 Total ${dataType}: ${count}`;
+            
+            if (currentTab === 'rooms' && suffix === '3') {
+                const totalRooms = roomTypesCount + roomsCount;
+                statsEl.textContent = `📊 Room Types: ${roomTypesCount} | Individual Rooms: ${roomsCount} | Total: ${totalRooms}`;
+            } else {
+                const dataType = currentTab === 'sources' ? 'Sources' : 
+                               currentTab === 'taxes-fees' ? 'Taxes & Fees Items' : 
+                               currentTab === 'rooms' ? 'Room-related Items' : 
+                               currentTab === 'payment-methods' ? 'Payment Items' : 'Items';
+                statsEl.textContent = `📊 Total ${dataType}: ${count}`;
+            }
+            
             statsEl.classList.remove('hidden');
         }
 
@@ -1216,7 +1297,7 @@
                           dataType === 'taxes-fees' ? '2' : 
                           dataType === 'rooms' ? '3' : 
                           dataType === 'payment-methods' ? '4' : '5';
-            const { items, sources, columns, count } = data;
+            const { items, sources, columns, count, room_types_count = 0, rooms_count = 0 } = data;
             const tableData = items || sources || [];
             
             if (!tableData || tableData.length === 0) {
@@ -1225,11 +1306,9 @@
                 return;
             }
 
-            // Hide no data message and show table
             document.getElementById('noData' + suffix).classList.add('hidden');
             document.getElementById('tableContainer' + suffix).classList.remove('hidden');
 
-            // Create table header
             const headerEl = document.getElementById('tableHeader' + suffix);
             headerEl.innerHTML = '';
             const headerRow = document.createElement('tr');
@@ -1242,11 +1321,9 @@
             
             headerEl.appendChild(headerRow);
 
-            // Create table body
             const bodyEl = document.getElementById('tableBody' + suffix);
             bodyEl.innerHTML = '';
             
-            // Process all rows
             tableData.forEach((item, index) => {
                 const row = document.createElement('tr');
                 const isRoomType = dataType === 'rooms' && item.data_type === 'Room Type';
@@ -1254,7 +1331,6 @@
                 const isGateway = dataType === 'payment-methods' && item.data_type === 'Gateway';
                 const isPaymentMethod = dataType === 'payment-methods' && item.data_type === 'Payment Method';
                 
-                // Add special styling for different row types
                 if (isRoomType || isGateway) {
                     row.style.backgroundColor = '#e9ecef';
                     row.style.fontWeight = 'bold';
@@ -1270,20 +1346,17 @@
                     const td = document.createElement('td');
                     const value = item[column];
                     
-                    // Format boolean values
                     if (typeof value === 'boolean') {
                         td.textContent = value ? 'Yes' : 'No';
                     } else {
                         td.textContent = value || '';
                     }
                     
-                    // Add indentation for rooms under room types
                     if (isRoom && column === 'data_type') {
                         td.style.paddingLeft = '20px';
                         td.textContent = '↳ ' + (value || '');
                     }
                     
-                    // Add indentation for payment methods under gateway
                     if (isPaymentMethod && column === 'data_type') {
                         td.style.paddingLeft = '20px';
                         td.textContent = '↳ ' + (value || '');
@@ -1295,11 +1368,14 @@
                 bodyEl.appendChild(row);
             });
 
-            // Update stats and enable export
-            updateStats(count, suffix);
+            if (dataType === 'rooms') {
+                updateStats(count, suffix, room_types_count, rooms_count);
+            } else {
+                updateStats(count, suffix);
+            }
+            
             document.getElementById('exportBtn').disabled = false;
             
-            // Show rooms controls if this is the rooms tab
             if (dataType === 'rooms') {
                 document.getElementById('roomsControls').classList.remove('hidden');
             }
@@ -1309,29 +1385,19 @@
             const toggleBtn = document.getElementById('toggleAllBtn');
             const allRoomDetailRows = document.querySelectorAll('.room-detail-row');
             
-            console.log('Toggle all room details clicked');
-            console.log('Found room detail rows:', allRoomDetailRows.length);
-            
             if (allRoomDetailRows.length === 0) {
-                console.log('No room detail rows found');
                 return;
             }
             
-            // Check current state - if first room row is visible, then hide all; otherwise show all
             const isCurrentlyVisible = allRoomDetailRows[0].style.display !== 'none';
-            console.log('Current visibility:', isCurrentlyVisible);
             
-            // Toggle all room detail rows
             allRoomDetailRows.forEach((row, index) => {
                 const newDisplay = isCurrentlyVisible ? 'none' : 'table-row';
                 row.style.display = newDisplay;
-                console.log(`Room detail row ${index}: set to ${newDisplay}`);
             });
             
-            // Update button text
             const newButtonText = isCurrentlyVisible ? '▶ Show All Room Details' : '▼ Hide All Room Details';
             toggleBtn.textContent = newButtonText;
-            console.log('Button text updated to:', newButtonText);
         }
 
         async function testConnection() {
@@ -1359,7 +1425,7 @@
                           currentTab === 'payment-methods' ? '4' : '5';
             
             if (!accessToken || !propertyId) {
-                showConnectionStatus('error', '❌ Please enter both access token and Property ID', suffix);
+                showConnectionStatus('error', '❌ Please enter both API key and Property ID', suffix);
                 return;
             }
             
@@ -1401,174 +1467,25 @@
             
             showMessage('info', 'Exporting to CSV...');
             
-            // Build the export URL
             let exportUrl = `/export/csv?type=${dataType}`;
             
-            // For sources or taxes-fees, check if we have bulk data with multiple property IDs
-            if ((dataType === 'taxes-fees' || dataType === 'sources') && currentData.items || currentData.sources) {
+            if ((dataType === 'taxes-fees' || dataType === 'sources') && (currentData.items || currentData.sources)) {
                 const dataItems = currentData.items || currentData.sources || [];
-                // Check if we have multiple unique property IDs
                 const propertyIds = [...new Set(dataItems.map(item => item.propertyID).filter(id => id))];
                 if (propertyIds.length > 1) {
-                    // This is bulk data, pass the property IDs to the backend
                     exportUrl += `&bulkPropertyIds=${propertyIds.join(',')}`;
                 }
             }
             
-            // Create a temporary link to download the CSV
             const link = document.createElement('a');
             link.href = exportUrl;
             link.download = `cloudbeds_${dataType.replace('-', '_')}_${new Date().toISOString().slice(0, 19).replace(/[:\-]/g, '').replace('T', '_')}.csv`;
             
-            // Trigger download
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             
             showMessage('success', 'CSV export started! Check your downloads folder.');
-        }
-
-        function showBulkSourcesDialog() {
-            document.getElementById('bulkSourcesDialog').classList.remove('hidden');
-        }
-
-        function hideBulkSourcesDialog() {
-            document.getElementById('bulkSourcesDialog').classList.add('hidden');
-            document.getElementById('bulkSourcesProgress').classList.add('hidden');
-            // Reset the form
-            document.getElementById('bulkSourcesIds').value = '';
-            document.getElementById('sourcesProgressFill').style.width = '0%';
-            document.getElementById('sourcesProgressText').textContent = '';
-        }
-
-        async function loadBulkSources() {
-            const accessToken = document.getElementById('accessToken').value.trim();
-            const bulkText = document.getElementById('bulkSourcesIds').value.trim();
-            
-            if (!accessToken) {
-                showMessage('error', 'Please enter your access token first');
-                return;
-            }
-            
-            if (!bulkText) {
-                showMessage('error', 'Please enter property IDs');
-                return;
-            }
-            
-            // Parse property IDs from text (support commas, spaces, newlines)
-            const propertyIds = bulkText
-                .split(/[,\s\n\r]+/)
-                .map(id => id.trim())
-                .filter(id => id && /^\d+$/.test(id)); // Only numeric IDs
-            
-            if (propertyIds.length === 0) {
-                showMessage('error', 'No valid property IDs found');
-                return;
-            }
-            
-            console.log(`Loading sources for ${propertyIds.length} properties:`, propertyIds);
-            
-            // Show progress
-            document.getElementById('bulkSourcesProgress').classList.remove('hidden');
-            const progressFill = document.getElementById('sourcesProgressFill');
-            const progressText = document.getElementById('sourcesProgressText');
-            
-            // Save settings first
-            try {
-                const saveResponse = await fetch('/api/save-settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        access_token: accessToken,
-                        property_id: propertyIds[0] // Use first property ID as default
-                    })
-                });
-                
-                const saveResult = await saveResponse.json();
-                if (!saveResult.success) {
-                    showMessage('error', `Failed to save settings: ${saveResult.error}`);
-                    hideBulkSourcesDialog();
-                    return;
-                }
-            } catch (error) {
-                showMessage('error', `Error saving settings: ${error.message}`);
-                hideBulkSourcesDialog();
-                return;
-            }
-            
-            // Load data for all properties
-            let allData = [];
-            let successCount = 0;
-            let errorCount = 0;
-            
-            for (let i = 0; i < propertyIds.length; i++) {
-                const propertyId = propertyIds[i];
-                const progress = ((i + 1) / propertyIds.length) * 100;
-                
-                progressFill.style.width = `${progress}%`;
-                progressText.textContent = `Loading property ${i + 1} of ${propertyIds.length} (ID: ${propertyId})...`;
-                
-                try {
-                    const response = await fetch(`/api/sources?propertyID=${propertyId}`);
-                    const result = await response.json();
-                    
-                    if (result.success && result.data && result.data.sources) {
-                        // The backend should already have the correct propertyID, just add the data
-                        allData.push(...result.data.sources);
-                        successCount++;
-                        console.log(`✅ Loaded ${result.data.sources.length} sources for property ${propertyId}`);
-                    } else {
-                        console.log(`❌ Failed to load property ${propertyId}: ${result.error || 'No data'}`);
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.log(`❌ Error loading property ${propertyId}: ${error.message}`);
-                    errorCount++;
-                }
-                
-                // Small delay to prevent overwhelming the API
-                if (i < propertyIds.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            }
-            
-            hideBulkSourcesDialog();
-            
-            if (allData.length > 0) {
-                // Sort by property ID
-                allData.sort((a, b) => {
-                    const propA = parseInt(a.propertyID) || 0;
-                    const propB = parseInt(b.propertyID) || 0;
-                    return propA - propB;
-                });
-                
-                // Get all columns and ensure propertyID is first
-                const allColumns = ['propertyID', ...new Set(allData.flatMap(item => Object.keys(item)))];
-                const uniqueColumns = [...new Set(allColumns)];
-                
-                // Normalize data
-                const normalizedData = allData.map(item => {
-                    const normalized = {};
-                    uniqueColumns.forEach(col => {
-                        normalized[col] = item[col] || '';
-                    });
-                    return normalized;
-                });
-                
-                sourcesData = {
-                    sources: normalizedData,
-                    columns: uniqueColumns,
-                    count: normalizedData.length
-                };
-                
-                createTable(sourcesData, 'sources');
-                showMessage('success', `Successfully loaded ${allData.length} sources from ${successCount} properties! (${errorCount} errors)`);
-                showConnectionStatus('success', '✅ Bulk load completed');
-            } else {
-                showMessage('error', `No data loaded. ${errorCount} properties failed to load.`);
-            }
         }
     </script>
 </body>

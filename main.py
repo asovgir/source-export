@@ -99,6 +99,64 @@ def make_api_call(url, params, credentials):
         traceback.print_exc()
         return {'success': False, 'error': f"Connection error: {str(e)}"}
 
+def make_paginated_api_call(url, params, credentials, page_size=100):
+    """Make paginated API calls to get all data"""
+    all_data = []
+    page = 1
+    total_fetched = 0
+    
+    while True:
+        # Add pagination parameters
+        paginated_params = params.copy()
+        paginated_params.update({
+            'pageNumber': page,
+            'pageSize': page_size
+        })
+        
+        print(f"🔄 Fetching page {page} (limit: {page_size})")
+        
+        result = make_api_call(url, paginated_params, credentials)
+        
+        if not result['success']:
+            print(f"❌ Failed to fetch page {page}: {result['error']}")
+            break
+        
+        response_data = result['data']
+        
+        # Handle the nested structure for rooms
+        if isinstance(response_data, dict) and 'data' in response_data:
+            page_data = response_data['data']
+            count = response_data.get('count', 0)
+            total = response_data.get('total', 0)
+            
+            print(f"📄 Page {page}: got {count} items, total available: {total}")
+            
+            if isinstance(page_data, list) and page_data:
+                all_data.extend(page_data)
+                total_fetched += count
+                
+                # Check if we've got everything
+                if total_fetched >= total or count < page_size:
+                    print(f"✅ Finished pagination. Got {total_fetched} of {total} items")
+                    break
+                    
+                page += 1
+            else:
+                print(f"⚠️ Page {page} returned no data or unexpected format")
+                break
+        else:
+            print(f"⚠️ Unexpected response format on page {page}")
+            break
+    
+    return {
+        'success': True,
+        'data': {
+            'data': all_data,
+            'count': len(all_data),
+            'total': len(all_data)
+        }
+    }
+
 # Data processing functions
 def safe_get(obj, key, default=''):
     """Safely get a value from a dictionary"""
@@ -385,25 +443,59 @@ def process_rooms_data(room_types_response, rooms_response):
     elif isinstance(rt_data, list):
         room_types = rt_data
     
-    # Extract rooms - handle the nested structure
+    # Extract rooms - handle all possible nested structures
     r_data = rooms_response['data']
     print(f"🔍 Raw rooms response structure: {type(r_data)}")
+    print(f"🔍 Raw rooms response keys: {list(r_data.keys()) if isinstance(r_data, dict) else 'Not a dict'}")
     
     rooms = []
-    if isinstance(r_data, dict) and 'data' in r_data:
-        rooms_data = r_data['data']
-        print(f"🔍 Rooms data type: {type(rooms_data)}")
-        
-        if isinstance(rooms_data, list):
-            # The API returns [{"propertyID": "6000", "rooms": [...]}]
-            for property_data in rooms_data:
-                if isinstance(property_data, dict) and 'rooms' in property_data:
-                    property_rooms = property_data['rooms']
-                    if isinstance(property_rooms, list):
-                        rooms.extend(property_rooms)  # Extract the actual rooms array
-                        print(f"🔍 Extracted {len(property_rooms)} rooms from property {property_data.get('propertyID')}")
     
-    print(f"📊 Final count - Processing {len(room_types)} room types and {len(rooms)} individual rooms")
+    # More comprehensive extraction logic
+    def extract_rooms_recursively(data, depth=0):
+        """Recursively extract rooms from nested structures"""
+        indent = "  " * depth
+        print(f"{indent}🔍 Extracting from: {type(data)}")
+        
+        if isinstance(data, list):
+            print(f"{indent}🔍 Processing list with {len(data)} items")
+            for i, item in enumerate(data):
+                print(f"{indent}🔍 List item {i}: {type(item)}")
+                extract_rooms_recursively(item, depth + 1)
+        
+        elif isinstance(data, dict):
+            print(f"{indent}🔍 Processing dict with keys: {list(data.keys())}")
+            
+            # If this dict contains 'rooms' key, extract those rooms
+            if 'rooms' in data:
+                rooms_array = data['rooms']
+                if isinstance(rooms_array, list):
+                    print(f"{indent}✅ Found 'rooms' array with {len(rooms_array)} rooms")
+                    rooms.extend(rooms_array)
+                    
+                    # Log sample room for debugging
+                    if rooms_array:
+                        sample = rooms_array[0]
+                        print(f"{indent}🔍 Sample room: {sample}")
+                else:
+                    print(f"{indent}⚠️ 'rooms' key found but value is not a list: {type(rooms_array)}")
+            
+            # If this dict contains 'data' key, recurse into it
+            if 'data' in data:
+                print(f"{indent}🔍 Found 'data' key, recursing...")
+                extract_rooms_recursively(data['data'], depth + 1)
+            
+            # If this dict has 'success' and 'data' keys (wrapped response), recurse
+            if 'success' in data and 'data' in data:
+                print(f"{indent}🔍 Found wrapped response, recursing into data...")
+                extract_rooms_recursively(data['data'], depth + 1)
+        
+        else:
+            print(f"{indent}🔍 Skipping non-dict/non-list: {type(data)}")
+    
+    # Start the recursive extraction
+    extract_rooms_recursively(r_data)
+    
+    print(f"📊 FINAL ROOMS EXTRACTION: Found {len(rooms)} individual rooms")
     
     # Show sample room data if available
     if rooms:
@@ -437,22 +529,16 @@ def process_rooms_data(room_types_response, rooms_response):
             if room is None:
                 continue
             
-            # Handle both string and integer room type IDs
             room_rt_id = safe_get(room, 'roomTypeID')
             room_name = safe_get(room, 'roomName')
             room_id = safe_get(room, 'roomID')
             
-            # Convert both to strings for comparison (API might return integers)
             room_rt_id_str = str(room_rt_id)
             room_type_id_str = str(room_type_id)
             
-            print(f"   Room {i}: {room_name} (ID: {room_id}) belongs to roomTypeID: {room_rt_id} (comparing {room_rt_id_str} vs {room_type_id_str})")
-            
             if room_rt_id_str == room_type_id_str:
                 matching_rooms.append(room)
-                print(f"     ✅ MATCH! This room belongs to {room_type_name}")
-            else:
-                print(f"     ❌ No match - looking for {room_type_id_str}, found {room_rt_id_str}")
+                print(f"     ✅ MATCH! Room {room_name} (ID: {room_id}) belongs to {room_type_name}")
         
         print(f"   Found {len(matching_rooms)} rooms for room type {room_type_name}")
         
@@ -468,7 +554,11 @@ def process_rooms_data(room_types_response, rooms_response):
             processed.append(r_row)
             print(f"     + Added room: {safe_get(room, 'roomName')} (ID: {safe_get(room, 'roomID')})")
     
-    print(f"📊 Total processed items: {len(processed)}")
+    print(f"📊 FINAL PROCESSING SUMMARY:")
+    print(f"📊 - Room types: {len(room_types)}")
+    print(f"📊 - Individual rooms extracted: {len(rooms)}")
+    print(f"📊 - Total processed items: {len(processed)}")
+    
     return processed
 
 def get_all_columns(data_list):
@@ -728,19 +818,25 @@ def get_rooms():
         credentials = get_credentials()
         
         if not credentials['access_token']:
-            return jsonify({'success': False, 'error': 'Access token not configured'})
+            return jsonify({'success': False, 'error': 'API key not configured'})
         
         print(f"🚀 Fetching rooms for property {credentials['property_id']}")
         
-        # Get room types
-        rt_response = make_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
+        # Get room types with pagination
+        print("🔄 Fetching room types with pagination...")
+        rt_response = make_paginated_api_call(ROOM_TYPES_URL, {'propertyID': credentials['property_id']}, credentials)
         if not rt_response['success']:
             return jsonify({'success': False, 'error': f"Room types: {rt_response['error']}"})
         
-        # Get rooms
-        r_response = make_api_call(ROOMS_URL, {'propertyID': credentials['property_id']}, credentials)
+        print(f"📊 Total room types fetched: {rt_response['data']['count']}")
+        
+        # Get rooms with pagination
+        print("🔄 Fetching rooms with pagination...")
+        r_response = make_paginated_api_call(ROOMS_URL, {'propertyID': credentials['property_id']}, credentials)
         if not r_response['success']:
             return jsonify({'success': False, 'error': f"Rooms: {r_response['error']}"})
+        
+        print(f"📊 Total rooms fetched: {r_response['data']['count']}")
         
         processed_data = process_rooms_data(rt_response, r_response)
         all_columns = get_all_columns(processed_data)
@@ -749,6 +845,8 @@ def get_rooms():
         # Count room types and rooms
         room_types_count = len([r for r in processed_data if r.get('data_type') == 'Room Type'])
         rooms_count = len([r for r in processed_data if r.get('data_type') == 'Room'])
+        
+        print(f"📊 Final counts - Room types: {room_types_count}, Individual rooms: {rooms_count}")
         
         return jsonify({
             'success': True,
