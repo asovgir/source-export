@@ -286,7 +286,7 @@
             width: 0%;
             transition: width 0.3s ease;
         }
-        #progressText, #sourcesProgressText {
+        #progressText, #sourcesProgressText, #itemsProgressText {
             text-align: center;
             font-weight: bold;
             color: #666;
@@ -544,7 +544,28 @@
                         <button onclick="testConnection()" id="testBtn5" class="btn-warning">Test Connection</button>
                     </div>
                 </div>
+                <div style="text-align: right; margin-top: 10px;">
+                    <a href="#" onclick="showBulkItemsDialog(); return false;" style="font-size: 12px; color: #666; text-decoration: none;">+ Bulk load multiple properties</a>
+                </div>
                 <div id="connectionStatus5" class="connection-status hidden"></div>
+            </div>
+
+            <div id="bulkItemsDialog" class="bulk-dialog hidden">
+                <div class="bulk-dialog-content">
+                    <h3>🏢 Bulk Property IDs - Items</h3>
+                    <p>Enter property IDs separated by commas, spaces, or new lines:</p>
+                    <textarea id="bulkItemsIds" placeholder="6000, 6001, 6002&#10;6003&#10;6004, 6005" rows="10"></textarea>
+                    <div class="bulk-dialog-buttons">
+                        <button onclick="loadBulkItems()" class="btn-success">Load All Properties</button>
+                        <button onclick="hideBulkItemsDialog()" class="btn-secondary">Cancel</button>
+                    </div>
+                    <div id="bulkItemsProgress" class="hidden">
+                        <div class="progress-bar">
+                            <div id="itemsProgressFill" class="progress-fill"></div>
+                        </div>
+                        <div id="itemsProgressText">Loading property 1 of 100...</div>
+                    </div>
+                </div>
             </div>
 
             <div id="loading5" class="loading hidden">
@@ -1217,6 +1238,134 @@
                 showConnectionStatus('success', '✅ Bulk load completed');
             } else {
                 showMessage('error', `No data loaded. ${errorCount} properties failed to load.`);
+            }
+        }
+
+        function showBulkItemsDialog() {
+            document.getElementById('bulkItemsDialog').classList.remove('hidden');
+        }
+
+        function hideBulkItemsDialog() {
+            document.getElementById('bulkItemsDialog').classList.add('hidden');
+            document.getElementById('bulkItemsProgress').classList.add('hidden');
+            document.getElementById('bulkItemsIds').value = '';
+            document.getElementById('itemsProgressFill').style.width = '0%';
+            document.getElementById('itemsProgressText').textContent = '';
+        }
+
+        async function loadBulkItems() {
+            const accessToken = document.getElementById('accessToken5').value.trim();
+            const bulkText = document.getElementById('bulkItemsIds').value.trim();
+            
+            if (!accessToken) {
+                showMessage('error', 'Please enter your API key first', '5');
+                return;
+            }
+            
+            if (!bulkText) {
+                showMessage('error', 'Please enter property IDs', '5');
+                return;
+            }
+            
+            const propertyIds = bulkText
+                .split(/[,\s\n\r]+/)
+                .map(id => id.trim())
+                .filter(id => id && /^\d+$/.test(id));
+            
+            if (propertyIds.length === 0) {
+                showMessage('error', 'No valid property IDs found', '5');
+                return;
+            }
+            
+            document.getElementById('bulkItemsProgress').classList.remove('hidden');
+            const progressFill = document.getElementById('itemsProgressFill');
+            const progressText = document.getElementById('itemsProgressText');
+            
+            try {
+                const saveResponse = await fetch('/api/save-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        property_id: propertyIds[0]
+                    })
+                });
+                
+                const saveResult = await saveResponse.json();
+                if (!saveResult.success) {
+                    showMessage('error', `Failed to save settings: ${saveResult.error}`, '5');
+                    hideBulkItemsDialog();
+                    return;
+                }
+            } catch (error) {
+                showMessage('error', `Error saving settings: ${error.message}`, '5');
+                hideBulkItemsDialog();
+                return;
+            }
+            
+            let allData = [];
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (let i = 0; i < propertyIds.length; i++) {
+                const propertyId = propertyIds[i];
+                const progress = ((i + 1) / propertyIds.length) * 100;
+                
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `Loading property ${i + 1} of ${propertyIds.length} (ID: ${propertyId})...`;
+                
+                try {
+                    const response = await fetch(`/api/items?propertyID=${propertyId}`);
+                    const result = await response.json();
+                    
+                    if (result.success && result.data && result.data.items) {
+                        allData.push(...result.data.items);
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    errorCount++;
+                }
+                
+                if (i < propertyIds.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+            
+            hideBulkItemsDialog();
+            
+            if (allData.length > 0) {
+                allData.sort((a, b) => {
+                    const propA = parseInt(a.propertyID) || 0;
+                    const propB = parseInt(b.propertyID) || 0;
+                    return propA - propB;
+                });
+                
+                const allColumns = ['propertyID', ...new Set(allData.flatMap(item => Object.keys(item)))];
+                const uniqueColumns = [...new Set(allColumns)];
+                
+                const normalizedData = allData.map(item => {
+                    const normalized = {};
+                    uniqueColumns.forEach(col => {
+                        normalized[col] = item[col] || '';
+                    });
+                    return normalized;
+                });
+                
+                itemsData = {
+                    items: normalizedData,
+                    columns: uniqueColumns,
+                    count: normalizedData.length
+                };
+                
+                createTable(itemsData, 'items');
+                showMessage('success', `Successfully loaded ${allData.length} items from ${successCount} properties! (${errorCount} errors)`, '5');
+                showConnectionStatus('success', '✅ Bulk load completed', '5');
+            } else {
+                showMessage('error', `No data loaded. ${errorCount} properties failed to load.`, '5');
             }
         }
 

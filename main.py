@@ -355,6 +355,7 @@ def process_items_data(response):
             row = {}
             
             # Basic fields
+            row['propertyID'] = safe_get(item, 'propertyID')
             row['itemID'] = safe_get(item, 'itemID')
             row['itemType'] = safe_get(item, 'itemType')
             row['sku'] = safe_get(item, 'sku')
@@ -655,14 +656,24 @@ def get_items():
         if not credentials['access_token']:
             return jsonify({'success': False, 'error': 'Access token not configured'})
         
-        print(f"🚀 Fetching items for property {credentials['property_id']}")
+        # Support custom property ID from query parameter for bulk loading
+        custom_property_id = request.args.get('propertyID')
+        property_id = custom_property_id if custom_property_id else credentials['property_id']
         
-        response = make_api_call(ITEMS_URL, {'propertyID': credentials['property_id']}, credentials)
+        print(f"🚀 Fetching items for property {property_id}")
+        
+        response = make_api_call(ITEMS_URL, {'propertyID': property_id}, credentials)
         
         if not response['success']:
             return jsonify({'success': False, 'error': response['error']})
         
         processed_data = process_items_data(response)
+        
+        # Ensure propertyID is set for all items
+        for item in processed_data:
+            if 'propertyID' not in item or not item['propertyID']:
+                item['propertyID'] = property_id
+        
         all_columns = get_all_columns(processed_data)
         normalized_data = normalize_data(processed_data, all_columns)
         
@@ -953,10 +964,40 @@ def export_csv():
             filename = f"cloudbeds_payment_methods_{credentials['property_id']}"
             
         elif data_type == 'items':
-            response = make_api_call(ITEMS_URL, {'propertyID': credentials['property_id']}, credentials)
-            if not response['success']:
-                return f"Error: {response['error']}", 500
-            data = process_items_data(response)
+            # For items, we need to handle both single property and bulk property exports
+            bulk_property_ids = request.args.get('bulkPropertyIds', '')
+            
+            if bulk_property_ids:
+                # Handle bulk export - load data for multiple properties
+                property_ids = bulk_property_ids.split(',')
+                all_data = []
+                
+                for prop_id in property_ids:
+                    prop_id = prop_id.strip()
+                    if prop_id:
+                        response = make_api_call(ITEMS_URL, {'propertyID': prop_id}, credentials)
+                        if response['success']:
+                            prop_data = process_items_data(response)
+                            # Add propertyID to each row
+                            for row in prop_data:
+                                if 'propertyID' not in row or not row['propertyID']:
+                                    row['propertyID'] = prop_id
+                            all_data.extend(prop_data)
+                
+                # Sort by propertyID
+                all_data.sort(key=lambda x: int(x.get('propertyID', '0') or '0'))
+                data = all_data
+                filename = f"cloudbeds_items_bulk_{len(property_ids)}_properties"
+            else:
+                response = make_api_call(ITEMS_URL, {'propertyID': credentials['property_id']}, credentials)
+                if not response['success']:
+                    return f"Error: {response['error']}", 500
+                data = process_items_data(response)
+                # Add propertyID to each row for consistency
+                for row in data:
+                    if 'propertyID' not in row or not row['propertyID']:
+                        row['propertyID'] = credentials['property_id']
+            
             filename = f"cloudbeds_items_{credentials['property_id']}"
             
         elif data_type == 'rooms':
